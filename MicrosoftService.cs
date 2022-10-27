@@ -8,6 +8,7 @@ using Microsoft.Graph;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Identity.Client;
+using System.Collections.Generic;
 
 namespace Cliver
 {
@@ -23,7 +24,7 @@ namespace Cliver
         /// Multi-tenant apps can use "common",
         /// single-tenant apps must use the tenant ID from the Azure portal
         /// </param>
-        public MicrosoftService(string clientId, string[] scopes, MicrosoftDataStoreUserSettings microsoftDataStoreUserSettings, string tenantId = "common")
+        public MicrosoftService(string clientId, IEnumerable<string> scopes, MicrosoftDataStoreUserSettings microsoftDataStoreUserSettings, string tenantId = "common")
         {
             ClientId = clientId;
             Scopes = scopes;
@@ -33,7 +34,7 @@ namespace Cliver
             Client = createClient();
         }
         public readonly string ClientId;
-        public readonly string[] Scopes;
+        public readonly IEnumerable<string> Scopes;
         public MicrosoftDataStoreUserSettings MicrosoftDataStoreUserSettings;
         public readonly string TenantId;
 
@@ -86,6 +87,7 @@ namespace Cliver
             {
                 //if (e.ErrorCode != MsalError.InvalidGrantError && e.ErrorCode != MsalError.UserNullError /* || e.Classification == UiRequiredExceptionClassification.None*/)
                 //    throw;
+                OnInteractiveAuthentication?.Invoke();
                 authenticationResult = await application.AcquireTokenInteractive(Scopes).ExecuteAsync();
                 account = authenticationResult?.Account;
 
@@ -97,6 +99,8 @@ namespace Cliver
             }
         }
         AuthenticationResult authenticationResult = null;
+
+        public Action OnInteractiveAuthentication = null;
 
         public void Authenticate()
         {
