@@ -44,58 +44,25 @@ namespace Cliver
             changePermissions(itemId, false);
         }
 
-        void lockingFile(string itemId, bool @lock)
+        /// <summary>
+        /// does not work!
+        /// </summary>
+        /// <param name="itemId"></param>
+        /// <param name="lock"></param>
+        public void tLockFile(string itemId, bool @lock)//!!!has no any effect!
         {
-            //var ih = Task.Run(() =>
-            //{
-            //    return Client.Me.Drive.Root.ItemWithPath(file).Request().Select("Id, Publication, Permissions, Name, File, Folder, AdditionalData, Shared").Expand("Publication").GetAsync();
-            //}).Result;
+            Task.Run(() =>
+            {
+                if (@lock)
+                    Client.Me.Drive.Items[itemId].Checkout().Request().PostAsync();
+                else
+                    Client.Me.Drive.Items[itemId].Checkin().Request().PostAsync();
+            }).Wait();
 
-            //try
-            //{
-            //    Task.Run(() =>
-            //    {
-            //        if (@lock)
-            //            Client.Me.Drive.Items[i.Id].Checkout().Request().PostAsync();
-            //        else
-            //            Client.Me.Drive.Items[i.Id].Checkin().Request().PostAsync();
-            //    }).Wait();
-            //}
-            //catch (Exception e)
-            //{
-
-            //}
-
-
-            //var ii = Task.Run(() =>
-            //{
-            //    //return Client.Me.Drive.Root.ItemWithPath(file).Request().Select("publication").GetAsync();
-            //    return Client.Me.Drive.Items[i.Id].Request().Select("id, publication, permissions, name").GetAsync();
-            //}).Result;
-
-            //try
-            //{
-            //    Task.Run(() =>
-            //    {
-            //        Client.Me.Drive.Root.ItemWithPath(file).Checkin().Request().PostAsync();
-            //    }).Wait();
-            //}
-            //catch (Exception e)
-            //{
-
-            //}
-
-            //try
-            //{
-            //    Task.Run(() =>
-            //    {
-            //        Client.Me.Drive.Root.ItemWithPath(file).Checkin().Request().PostAsync();
-            //    }).Wait();
-            //}
-            //catch (Exception e)
-            //{
-
-            //}
+            var ii = Task.Run(() =>
+            {
+                return Client.Me.Drive.Items[itemId].Request().Select("id, publication, permissions, name").GetAsync();
+            }).Result;
         }
 
         /// <summary>
