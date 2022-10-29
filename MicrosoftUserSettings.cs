@@ -1,4 +1,4 @@
-//Author: Sergey Stoyan
+//Author: Sergiy Stoyan
 //        systoyan@gmail.com
 //        sergiy.stoyan@outlook.com
 //        http://www.cliversoft.com
@@ -12,7 +12,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Cliver
 {
-    public class MicrosoftDataStoreUserSettings : Cliver.UserSettings
+    public class MicrosoftUserSettings : Cliver.UserSettings
     {
         /// <summary>
         /// The user's microsoft account chosen latest.

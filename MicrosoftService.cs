@@ -1,4 +1,4 @@
-//Author: Sergey Stoyan
+//Author: Sergiy Stoyan
 //        systoyan@gmail.com
 //        sergiy.stoyan@outlook.com
 //        http://www.cliversoft.com
@@ -19,23 +19,23 @@ namespace Cliver
         /// </summary>
         /// <param name="clientId"></param>
         /// <param name="scopes"></param>
-        /// <param name="microsoftDataStoreUserSettings"></param>
+        /// <param name="microsoftUserSettings"></param>
         /// <param name="tenantId">
         /// Multi-tenant apps can use "common",
         /// single-tenant apps must use the tenant ID from the Azure portal
         /// </param>
-        public MicrosoftService(string clientId, IEnumerable<string> scopes, MicrosoftDataStoreUserSettings microsoftDataStoreUserSettings, string tenantId = "common")
+        public MicrosoftService(string clientId, IEnumerable<string> scopes, MicrosoftUserSettings microsoftUserSettings, string tenantId = "common")
         {
             ClientId = clientId;
             Scopes = scopes;
-            MicrosoftDataStoreUserSettings = microsoftDataStoreUserSettings;
+            MicrosoftUserSettings = microsoftUserSettings;
             TenantId = tenantId;
 
             Client = createClient();
         }
         public readonly string ClientId;
         public readonly IEnumerable<string> Scopes;
-        public MicrosoftDataStoreUserSettings MicrosoftDataStoreUserSettings;
+        public readonly MicrosoftUserSettings MicrosoftUserSettings;
         public readonly string TenantId;
 
         public string MicrosoftAccount
@@ -63,8 +63,8 @@ namespace Cliver
             //var cacheHelper = await Microsoft.Identity.Client.Extensions.Msal.MsalCacheHelper.CreateAsync(storageProperties);
             //cacheHelper.RegisterCache(application.UserTokenCache);
 
-            application.UserTokenCache.SetAfterAccess(MicrosoftDataStoreUserSettings.AfterAccessNotification);
-            application.UserTokenCache.SetBeforeAccess(MicrosoftDataStoreUserSettings.BeforeAccessNotification);
+            application.UserTokenCache.SetAfterAccess(MicrosoftUserSettings.AfterAccessNotification);
+            application.UserTokenCache.SetBeforeAccess(MicrosoftUserSettings.BeforeAccessNotification);
             //application.UserTokenCache.SetBeforeWrite((TokenCacheNotificationArgs a) => { });
             //application.UserTokenCache.SetCacheOptions(new CacheOptions { UseSharedCache = false });
 
@@ -91,10 +91,10 @@ namespace Cliver
                 authenticationResult = await application.AcquireTokenInteractive(Scopes).ExecuteAsync();
                 account = authenticationResult?.Account;
 
-                if (MicrosoftDataStoreUserSettings.MicrosoftAccount != account.Username)
+                if (MicrosoftUserSettings.MicrosoftAccount != account.Username)
                 {
-                    MicrosoftDataStoreUserSettings.MicrosoftAccount = account.Username;
-                    MicrosoftDataStoreUserSettings.Save();
+                    MicrosoftUserSettings.MicrosoftAccount = account.Username;
+                    MicrosoftUserSettings.Save();
                 }
             }
         }
@@ -105,6 +105,18 @@ namespace Cliver
         public void Authenticate()
         {
             Task.Run(() => authenticate()).Wait();
+        }
+
+        public TimeSpan Timeout
+        {
+            get
+            {
+                return Client.HttpProvider.OverallTimeout;
+            }
+            set
+            {
+                Client.HttpProvider.OverallTimeout = value;
+            }
         }
 
         public User GetUser(string userId = null)

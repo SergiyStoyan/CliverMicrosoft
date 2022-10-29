@@ -1,4 +1,4 @@
-//Author: Sergey Stoyan
+//Author: Sergiy Stoyan
 //        systoyan@gmail.com
 //        sergiy.stoyan@outlook.com
 //        http://www.cliversoft.com
@@ -18,8 +18,8 @@ namespace Cliver
 {
     public class OneDrive : MicrosoftService
     {
-        public OneDrive(string clientId, string[] scopes, MicrosoftDataStoreUserSettings microsoftDataStoreUserSettings, string tenantId = "common")
-            : base(clientId, scopes, microsoftDataStoreUserSettings, tenantId)
+        public OneDrive(string clientId, string[] scopes, MicrosoftUserSettings microsoftUserSettings, string tenantId = "common")
+            : base(clientId, scopes, microsoftUserSettings, tenantId)
         {
         }
 
@@ -78,7 +78,7 @@ namespace Cliver
         {
             lock (this)
             {
-                if (!MicrosoftDataStoreUserSettings.ItemIds2PermissionIds2Roles.TryGetValue(itemId, out var permissionIds2Roles))
+                if (!MicrosoftUserSettings.ItemIds2PermissionIds2Roles.TryGetValue(itemId, out var permissionIds2Roles))
                 {
                     if (!readOnly)//it is a repeated unlock
                         return;
@@ -89,8 +89,8 @@ namespace Cliver
                     permissionIds2Roles = new Dictionary<string, List<string>>();
                     foreach (var p in ps.Where(a => a.GrantedTo != null))
                         permissionIds2Roles[p.Id] = p.Roles.ToList();
-                    MicrosoftDataStoreUserSettings.ItemIds2PermissionIds2Roles[itemId] = permissionIds2Roles;
-                    MicrosoftDataStoreUserSettings.Save();
+                    MicrosoftUserSettings.ItemIds2PermissionIds2Roles[itemId] = permissionIds2Roles;
+                    MicrosoftUserSettings.Save();
                 }
 
                 foreach (string permissionId in permissionIds2Roles.Keys)
@@ -106,29 +106,29 @@ namespace Cliver
 
                 if (!readOnly)
                 {
-                    MicrosoftDataStoreUserSettings.ItemIds2PermissionIds2Roles.Remove(itemId);
-                    MicrosoftDataStoreUserSettings.Save();
+                    MicrosoftUserSettings.ItemIds2PermissionIds2Roles.Remove(itemId);
+                    MicrosoftUserSettings.Save();
                 }
             }
         }
 
-        public enum Roles
+        public enum LinkRoles
         {
             view, edit, embed
         }
 
-        public enum Scopes
+        public enum LinkScopes
         {
             anonymous, organization
         }
 
-        public SharingLink GetLink(string itemId, Roles role, string password = null, DateTimeOffset? expirationDateTime = null, Scopes? scope = null, string message = null, bool? retainInheritedPermissions = null)
+        public SharingLink GetLink(string itemId, LinkRoles linkRole, string password = null, DateTimeOffset? expirationDateTime = null, LinkScopes? linkScopes = null, string message = null, bool? retainInheritedPermissions = null)
         {
             lock (this)
             {
                 Permission p = Task.Run(() =>
                 {
-                    return Client.Me.Drive.Items[itemId].CreateLink(role.ToString(), scope.ToString(), expirationDateTime, password, message, retainInheritedPermissions).Request().PostAsync();
+                    return Client.Me.Drive.Items[itemId].CreateLink(linkRole.ToString(), linkScopes.ToString(), expirationDateTime, password, message, retainInheritedPermissions).Request().PostAsync();
 
                 }).Result;
                 return p.Link;

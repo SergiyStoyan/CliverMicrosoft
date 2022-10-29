@@ -1,4 +1,4 @@
-////Author: Sergey Stoyan
+////Author: Sergiy Stoyan
 ////        systoyan@gmail.com
 ////        sergiy.stoyan@outlook.com
 ////        http://www.cliversoft.com
