@@ -129,7 +129,6 @@ namespace Cliver
                 Permission p = Task.Run(() =>
                 {
                     return Client.Me.Drive.Items[itemId].CreateLink(linkRole.ToString(), linkScopes.ToString(), expirationDateTime, password, message, retainInheritedPermissions).Request().PostAsync();
-
                 }).Result;
                 return p.Link;
             }

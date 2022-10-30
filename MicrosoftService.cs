@@ -104,7 +104,10 @@ namespace Cliver
 
         public void Authenticate()
         {
-            Task.Run(() => authenticate()).Wait();
+            //Task.Run(() => authenticate()).Wait();!!!on the client's computer it gave:
+            //ActiveX control '8856f961-340a-11d0-a96b-00c04fd705a2' cannot be instantiated because the current thread is not in a single-threaded apartment. 
+            var t = ThreadRoutines.StartTrySta(authenticate().Wait);
+            t.Join();
         }
 
         public TimeSpan Timeout

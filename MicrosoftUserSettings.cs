@@ -21,31 +21,26 @@ namespace Cliver
         public string MicrosoftAccount { get; internal set; }
 
         /// <summary>
-        /// Used for Lock/Unlock items
+        /// Used in Lock/Unlock items
         /// </summary>
         [JsonProperty]
         internal Dictionary<string, Dictionary<string, List<string>>> ItemIds2PermissionIds2Roles = new Dictionary<string, Dictionary<string, List<string>>>();
 
-        /// <summary>
-        /// (!)This object is a cache storage by GraphServiceClient and must not be accessed from outside.
-        /// </summary>
-        [JsonProperty]
-        protected JObject MicrosoftCache
+        protected override void Loaded()
         {
-            get
-            {
-                if (microsoftCacheBytes == null)
-                    return null;
-                using (var stream = new MemoryStream(microsoftCacheBytes))
-                using (var reader = new StreamReader(stream, System.Text.Encoding.ASCII))
-                    //return System.Text.Json.JsonSerializer.Deserialize(stream, typeof(object));//!!!MSAL seems to use Newtonsoft.Json serialization and do not understand System.Text.Json
-                    return JsonSerializer.Create().Deserialize(reader, typeof(JObject)) as JObject;
+            if (MicrosoftCache == null)
+            { 
+                microsoftCacheBytes = null;
+                return;
             }
-            set
+
+            if (Endec != null)
+                microsoftCacheBytes = Endec.Decrypt((string)MicrosoftCache);
+            else
             {
                 using (MemoryStream stream = new MemoryStream())
                 {
-                    using (TextWriter w = new StreamWriter(stream, System.Text.Encoding.ASCII))//!!!if UTF8 then the writer will 3 bytes BYTE ORDER MARK in the beginning of the stream
+                    using (TextWriter w = new StreamWriter(stream, System.Text.Encoding.ASCII))//!!!if UTF8 then the writer will add 3 bytes BYTE ORDER MARK in the beginning of the stream
                     {
                         //System.Text.Json.JsonSerializer.Serialize(stream, value, value.GetType(), new System.Text.Json.JsonSerializerOptions { WriteIndented = false, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull | System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault });
                         JsonSerializer serializer = new JsonSerializer();
@@ -53,28 +48,63 @@ namespace Cliver
                         serializer.NullValueHandling = NullValueHandling.Ignore;
                         serializer.TypeNameHandling = TypeNameHandling.None;
                         serializer.DefaultValueHandling = DefaultValueHandling.Include;
-                        serializer.Serialize(w, value);
+                        serializer.Serialize(w, MicrosoftCache);
                     }
                     microsoftCacheBytes = stream.ToArray();
                 }
             }
         }
+
+        protected override void Saving()
+        {
+            if (microsoftCacheBytes == null)
+            {
+                MicrosoftCache = null;
+                return;
+            }
+
+            if (Endec != null)
+                MicrosoftCache = Endec.Encrypt(microsoftCacheBytes);
+            else
+                using (var stream = new MemoryStream(microsoftCacheBytes))
+                using (var reader = new StreamReader(stream, System.Text.Encoding.ASCII))
+                    //return System.Text.Json.JsonSerializer.Deserialize(stream, typeof(object));//!!!MSAL seems to use Newtonsoft.Json serialization and do not understand System.Text.Json
+                    MicrosoftCache = JsonSerializer.Create().Deserialize(reader, typeof(JObject)) as JObject;
+        }
+
+        /// <summary>
+        /// Set this object in the child class if the cache must be stored encrypted.
+        /// </summary>
+        protected Endec2String<byte[]> Endec { get; } = null;
+
+        /// <summary>
+        /// (!)This object is a cache storage by GraphServiceClient and must not be accessed from outside.
+        /// </summary>
+        [JsonProperty]
+        object MicrosoftCache;
+
         byte[] microsoftCacheBytes;
 
+        protected JObject GetMicrosoftCacheClone()
+        {
+            if (microsoftCacheBytes == null)
+                return null;
+            using (var stream = new MemoryStream(microsoftCacheBytes))
+            using (var reader = new StreamReader(stream, System.Text.Encoding.ASCII))
+                return JsonSerializer.Create().Deserialize(reader, typeof(JObject)) as JObject;
+        }
         //public string Account()
         //{
-        //    return (string)MicrosoftCache?["Account"]?.First()?.First()?["username"];
+        //    return (string)GetMicrosoftCacheClone()?["Account"]?.First()?.First()?["username"];
         //}
 
         //public string UserName()
         //{
-        //    return (string)MicrosoftCache?["Account"]?.First()?.First()?["name"];
+        //    return (string)GetMicrosoftCacheClone()?["Account"]?.First()?.First()?["name"];
         //}
 
         internal void BeforeAccessNotification(TokenCacheNotificationArgs args)
         {
-            if (microsoftCacheBytes == null)
-                return;
             args.TokenCache.DeserializeMsalV3(microsoftCacheBytes, shouldClearExistingCache: true);
         }
 
