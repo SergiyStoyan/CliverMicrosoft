@@ -8,7 +8,7 @@
 	  <Copyright>Sergiy Stoyan</Copyright>
 	  <Authors>Sergiy Stoyan</Authors>
 	  <Company>CliverSoft</Company>
-	  <Version>1.2.2</Version>
+	  <Version>1.2.3</Version>
 	  <Title>Cross-platform routines needed in the most applications.</Title>
 	  <PackageProjectUrl>https://github.com/sergiystoyan/CliverGoogleRoutines</PackageProjectUrl>
 	  <Description>	  </Description>
@@ -21,6 +21,7 @@
 
 	<PropertyGroup>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<RootNamespace>Cliver</RootNamespace>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
