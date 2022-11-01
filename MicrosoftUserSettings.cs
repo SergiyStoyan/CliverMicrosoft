@@ -29,29 +29,58 @@ namespace Cliver
         protected override void Loaded()
         {
             if (MicrosoftCache == null)
-            { 
+            {
                 microsoftCacheBytes = null;
                 return;
             }
 
             if (Endec != null)
-                microsoftCacheBytes = Endec.Decrypt((string)MicrosoftCache);
+            {
+                if (MicrosoftCache is string)
+                    microsoftCacheBytes = Endec.Decrypt((string)MicrosoftCache);
+                else
+                {
+                    if (MicrosoftCache is JObject)//if Endec was set recently
+                    {
+                        microsoftCacheBytes = getBytes(MicrosoftCache);
+                        Save();
+                    }
+                    else
+                        throw new Exception("MicrosoftCache is an unexpected type: " + MicrosoftCache.GetType());
+                }
+            }
             else
             {
-                using (MemoryStream stream = new MemoryStream())
+                if (MicrosoftCache is JObject)
+                    microsoftCacheBytes = getBytes(MicrosoftCache);
+                else
                 {
-                    using (TextWriter w = new StreamWriter(stream, System.Text.Encoding.ASCII))//!!!if UTF8 then the writer will add 3 bytes BYTE ORDER MARK in the beginning of the stream
+                    if (MicrosoftCache is string)//if Endec was unset recently
                     {
-                        //System.Text.Json.JsonSerializer.Serialize(stream, value, value.GetType(), new System.Text.Json.JsonSerializerOptions { WriteIndented = false, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull | System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault });
-                        JsonSerializer serializer = new JsonSerializer();
-                        serializer.Formatting = Formatting.None;//!!! it must be without formatting!
-                        serializer.NullValueHandling = NullValueHandling.Ignore;
-                        serializer.TypeNameHandling = TypeNameHandling.None;
-                        serializer.DefaultValueHandling = DefaultValueHandling.Include;
-                        serializer.Serialize(w, MicrosoftCache);
+                        microsoftCacheBytes = Endec.Decrypt((string)MicrosoftCache);
+                        Save();
                     }
-                    microsoftCacheBytes = stream.ToArray();
+                    else
+                        throw new Exception("MicrosoftCache is an unexpected type: " + MicrosoftCache.GetType());
                 }
+            }
+        }
+
+        static byte[] getBytes(object @object)
+        {
+            using (MemoryStream stream = new MemoryStream())
+            {
+                using (TextWriter w = new StreamWriter(stream, System.Text.Encoding.ASCII))//!!!if UTF8 then the writer will add 3 bytes BYTE ORDER MARK in the beginning of the stream
+                {
+                    //System.Text.Json.JsonSerializer.Serialize(stream, value, value.GetType(), new System.Text.Json.JsonSerializerOptions { WriteIndented = false, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull | System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault });
+                    JsonSerializer serializer = new JsonSerializer();
+                    serializer.Formatting = Formatting.None;//!!! it must be without formatting!
+                    serializer.NullValueHandling = NullValueHandling.Ignore;
+                    serializer.TypeNameHandling = TypeNameHandling.None;
+                    serializer.DefaultValueHandling = DefaultValueHandling.Include;
+                    serializer.Serialize(w, @object);
+                }
+                return stream.ToArray();
             }
         }
 
@@ -75,7 +104,7 @@ namespace Cliver
         /// <summary>
         /// Set this object in the child class if the cache must be stored encrypted.
         /// </summary>
-        protected Endec2String<byte[]> Endec { get; } = null;
+        virtual protected Endec2String<byte[]> Endec { get; } = null;
 
         /// <summary>
         /// (!)This object is a cache storage by GraphServiceClient and must not be accessed from outside.
