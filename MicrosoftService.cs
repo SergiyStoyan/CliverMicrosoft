@@ -88,7 +88,10 @@ namespace Cliver
                 //if (e.ErrorCode != MsalError.InvalidGrantError && e.ErrorCode != MsalError.UserNullError /* || e.Classification == UiRequiredExceptionClassification.None*/)
                 //    throw;
                 OnInteractiveAuthentication?.Invoke();
-                authenticationResult = await application.AcquireTokenInteractive(Scopes).ExecuteAsync();
+                authenticationResult = await application.AcquireTokenInteractive(Scopes)
+                    //.WithUseEmbeddedWebView(true)!!!intermittently gives the error (even when running in an STA thread): ActiveX control '8856f961-340a-11d0-a96b-00c04fd705a2' cannot be instantiated because the current thread is not in a single-threaded apartment. 
+                    .WithUseEmbeddedWebView(false)
+                    .ExecuteAsync();
                 account = authenticationResult?.Account;
 
                 if (MicrosoftUserSettings.MicrosoftAccount != account.Username)
@@ -102,14 +105,29 @@ namespace Cliver
 
         public Action OnInteractiveAuthentication = null;
 
-        public void Authenticate()
+        /*public void Authenticate2()//WithUseEmbeddedWebView(true)
         {
-            //Task.Run(authenticate).Wait();//!!!on the client's computer it gave:
-            //ActiveX control '8856f961-340a-11d0-a96b-00c04fd705a2' cannot be instantiated because the current thread is not in a single-threaded apartment. 
-            
-            //ThreadRoutines.StartTrySta(authenticate().Wait,null,null,false).Join();//!!!intermittently freezes
+            Task.Run(async () => { await authenticate(); }).Wait();//!!!on the client's computer it gave: ActiveX control '8856f961-340a-11d0-a96b-00c04fd705a2' cannot be instantiated because the current thread is not in a single-threaded apartment. 
 
-            TaskRoutines.RunSynchronously(authenticate);
+            //ThreadRoutines.StartTrySta(authenticate().Wait).Join();//!!!intermittently freezes
+
+            //if (System.Threading.Thread.CurrentThread.GetApartmentState() == System.Threading.ApartmentState.STA)
+            //TaskRoutines.RunSynchronously(authenticate);//!!!on the client's computer it gave: ActiveX control '8856f961-340a-11d0-a96b-00c04fd705a2' cannot be instantiated because the current thread is not in a single-threaded apartment. 
+            //else
+            //   ThreadRoutines.StartTrySta(() => { TaskRoutines.RunSynchronously(authenticate); }).Join();//feezes
+        }*/
+        public void Authenticate()//WithUseEmbeddedWebView(false)
+        {
+            //authenticate().Wait();//never returns from AcquireTokenInteractive()
+            //Task.Run(async () => { await authenticate(); }).Wait();//freezes at OnInteractiveAuthentication() 
+            //Task.Run(() => { authenticate(); }).Wait();//freezes at OnInteractiveAuthentication() 
+
+            //ThreadRoutines.StartTrySta(authenticate().Wait).Join();//!!!intermittently freezes
+
+            //if (System.Threading.Thread.CurrentThread.GetApartmentState() == System.Threading.ApartmentState.STA)
+            TaskRoutines.RunSynchronously(authenticate);//???works reliably?
+            //else
+            //   ThreadRoutines.StartTrySta(() => { TaskRoutines.RunSynchronously(authenticate); }).Join();//feezes
         }
 
         public TimeSpan Timeout

@@ -37,7 +37,7 @@ namespace Cliver
             if (Endec != null)
             {
                 if (MicrosoftCache is string)
-                    microsoftCacheBytes = Endec.Decrypt((string)MicrosoftCache);
+                    microsoftCacheBytes = Endec.Decrypt<byte[]>((string)MicrosoftCache);
                 else
                 {
                     if (MicrosoftCache is JObject)//if Endec was set recently
@@ -54,15 +54,7 @@ namespace Cliver
                 if (MicrosoftCache is JObject)
                     microsoftCacheBytes = getBytes(MicrosoftCache);
                 else
-                {
-                    if (MicrosoftCache is string)//if Endec was unset recently
-                    {
-                        microsoftCacheBytes = Endec.Decrypt((string)MicrosoftCache);
-                        Save();
-                    }
-                    else
-                        throw new Exception("MicrosoftCache is an unexpected type: " + MicrosoftCache.GetType());
-                }
+                    throw new Exception("MicrosoftCache is an unexpected type: " + MicrosoftCache.GetType());
             }
         }
 
@@ -104,7 +96,7 @@ namespace Cliver
         /// <summary>
         /// Set this object in the child class if the cache must be stored encrypted.
         /// </summary>
-        virtual protected Endec2String<byte[]> Endec { get; } = null;
+        virtual protected Endec2String Endec { get; } = null;
 
         /// <summary>
         /// (!)This object is a cache storage by GraphServiceClient and must not be accessed from outside.
