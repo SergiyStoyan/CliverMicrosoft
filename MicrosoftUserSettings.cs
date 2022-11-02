@@ -1,5 +1,5 @@
 //Author: Sergiy Stoyan
-//        systoyan@gmail.com
+//        s.y.stoyan@gmail.com
 //        sergiy.stoyan@outlook.com
 //        http://www.cliversoft.com
 //********************************************************************************************
@@ -54,7 +54,7 @@ namespace Cliver
                 if (MicrosoftCache is JObject)
                     microsoftCacheBytes = getBytes(MicrosoftCache);
                 else
-                    throw new Exception("MicrosoftCache is an unexpected type: " + MicrosoftCache.GetType());
+                    throw new Exception("MicrosoftCache is an unexpected type: " + MicrosoftCache.GetType() + "\r\nConsider deleting the config file: " + __Info.File);
             }
         }
 
@@ -96,7 +96,7 @@ namespace Cliver
         /// <summary>
         /// Set this object in the child class if the cache must be stored encrypted.
         /// </summary>
-        virtual protected Endec2String Endec { get; } = null;
+        virtual protected StringEndec Endec { get; } = null;
 
         /// <summary>
         /// (!)This object is a cache storage by GraphServiceClient and must not be accessed from outside.

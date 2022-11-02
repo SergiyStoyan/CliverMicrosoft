@@ -1,5 +1,5 @@
 ////Author: Sergiy Stoyan
-////        systoyan@gmail.com
+////        s.y.stoyan@gmail.com
 ////        sergiy.stoyan@outlook.com
 ////        http://www.cliversoft.com
 ////********************************************************************************************

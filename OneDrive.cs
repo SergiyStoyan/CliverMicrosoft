@@ -1,5 +1,5 @@
 //Author: Sergiy Stoyan
-//        systoyan@gmail.com
+//        s.y.stoyan@gmail.com
 //        sergiy.stoyan@outlook.com
 //        http://www.cliversoft.com
 //********************************************************************************************
@@ -23,6 +23,14 @@ namespace Cliver
         {
         }
 
+        public void test(string itemId)
+        {
+            var i = Task.Run(() =>
+            {
+                return Client.Me.Drive.Items[itemId].Request().Select("id, Shared, CreatedBy, CreatedByUser, name").GetAsync();
+            }).Result;
+        }
+
         public DriveItem GetItemByPath(string path)
         {
             lock (this)
@@ -34,35 +42,34 @@ namespace Cliver
             }
         }
 
-        public void LockItem(string itemId)
+        public bool LockItem(string itemId, bool changePermissionsIfCheckOutIsNotSupported)
         {
-            changePermissions(itemId, true);
+            lock (this)
+            {
+                var s = CheckOut(itemId);
+                if (s == ItemCheckStatus.CheckedOut)
+                    return true;
+                if (s == ItemCheckStatus.CheckedIn)
+                    return false;
+                if (!changePermissionsIfCheckOutIsNotSupported)
+                    return false;
+                changePermissions(itemId, true);
+                return true;
+            }
         }
 
-        public void UnlockItem(string itemId)
+        public bool UnlockItem(string itemId)
         {
-            changePermissions(itemId, false);
-        }
-
-        /// <summary>
-        /// does not work!
-        /// </summary>
-        /// <param name="itemId"></param>
-        /// <param name="lock"></param>
-        public void tLockFile(string itemId, bool @lock)//!!!has no any effect!
-        {
-            Task.Run(() =>
+            lock (this)
             {
-                if (@lock)
-                    Client.Me.Drive.Items[itemId].Checkout().Request().PostAsync();
-                else
-                    Client.Me.Drive.Items[itemId].Checkin().Request().PostAsync();
-            }).Wait();
-
-            var ii = Task.Run(() =>
-            {
-                return Client.Me.Drive.Items[itemId].Request().Select("id, publication, permissions, name").GetAsync();
-            }).Result;
+                var s = CheckIn(itemId, "by " + Log.ProgramName);
+                if (s == ItemCheckStatus.CheckedIn)
+                    return true;
+                if (s == ItemCheckStatus.CheckedOut)
+                    return false;
+                changePermissions(itemId, false);
+                return true;
+            }
         }
 
         /// <summary>
@@ -78,6 +85,20 @@ namespace Cliver
         {
             lock (this)
             {
+                if (readOnly)
+                {
+                    var i = Task.Run(() =>
+                    {
+                        return Client.Me.Drive.Items[itemId].Request().Select("id, Shared").GetAsync();
+                    }).Result;
+                    var user = Task.Run(() =>
+                    {
+                        return Client.Me.Request().GetAsync();
+                    }).Result;
+                    if (i.Shared.Owner.User?.Id != user.Id)
+                        throw new Exception("User " + user.DisplayName + " cannot change permissions of the item because it is not owned.");
+                }
+
                 if (!MicrosoftUserSettings.ItemIds2PermissionIds2Roles.TryGetValue(itemId, out var permissionIds2Roles))
                 {
                     if (!readOnly)//it is a repeated unlock
@@ -109,6 +130,66 @@ namespace Cliver
                     MicrosoftUserSettings.ItemIds2PermissionIds2Roles.Remove(itemId);
                     MicrosoftUserSettings.Save();
                 }
+            }
+        }
+
+        public enum ItemCheckStatus
+        {
+            CheckOutIsNotSupported,
+            CheckedIn,
+            CheckedOut,
+        }
+        public ItemCheckStatus GetCheckStatus(string itemId)
+        {
+            lock (this)
+            {
+                var i = Task.Run(() =>
+            {
+                return Client.Me.Drive.Items[itemId].Request().Select("id, publication").GetAsync();
+            }).Result;
+                if (i.Publication == null)//if NULL then checkout is not supported
+                    return ItemCheckStatus.CheckOutIsNotSupported;
+                string s = i.Publication.Level.ToLower();
+                if (s == "published")
+                    return ItemCheckStatus.CheckedIn;
+                if (s == "checkout")
+                    return ItemCheckStatus.CheckedOut;
+                throw new Exception("Unknown Publication.Level: " + s);
+            }
+        }
+
+        /// <summary>
+        /// (!)Not supported on a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
+        /// </summary>
+        /// <param name="itemId"></param>
+        public ItemCheckStatus CheckOut(string itemId)
+        {
+            lock (this)
+            {
+                Task.Run(() =>
+            {
+                Client.Me.Drive.Items[itemId].Checkout().Request().PostAsync();//not supported for a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
+            }).Wait();
+
+                return GetCheckStatus(itemId);
+            }
+        }
+
+        /// <summary>
+        /// (!)Not supported on a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
+        /// </summary>
+        /// <param name="itemId"></param>
+        /// <param name="comment"></param>
+        public ItemCheckStatus CheckIn(string itemId, string comment)
+        {
+            lock (this)
+            {
+                Task.Run(() =>
+            {
+                Client.Me.Drive.Items[itemId].Checkin("published", comment).Request().PostAsync();//not supported for a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
+            }).Wait();
+
+                return GetCheckStatus(itemId);
             }
         }
 
@@ -204,7 +285,13 @@ namespace Cliver
             }
         }
 
-        public DriveItem CreateFile(string remoteFile, string localFile)//TBD
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="remoteFile"></param>
+        /// <param name="localFile"></param>
+        /// <returns></returns>
+        public DriveItem CreateFile(string remoteFile, string localFile)
         {
             lock (this)
             {
@@ -233,7 +320,12 @@ namespace Cliver
             }
         }
 
-        public DriveItem CreateFolder(string remoteFolder)//TBD
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="remoteFolder"></param>
+        /// <returns></returns>
+        public DriveItem CreateFolder(string remoteFolder)
         {
             lock (this)
             {
@@ -250,7 +342,6 @@ namespace Cliver
                 {
                     return Client.Me.Drive.Root.ItemWithPath("parentId").Children.Request().AddAsync(i);
                 }).Result;
-
             }
         }
     }
