@@ -152,5 +152,16 @@ namespace Cliver
                     return Client.Users[userId].Request().GetAsync();
             }).Result;
         }
+
+        public User User
+        {
+            get
+            {
+                if (user == null)
+                    user = GetUser(null);
+                return user;
+            }
+        }
+        User user = null;
     }
 }
