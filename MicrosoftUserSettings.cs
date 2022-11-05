@@ -20,11 +20,11 @@ namespace Cliver
         [JsonProperty]
         public string MicrosoftAccount { get; internal set; }
 
-        /// <summary>
-        /// Used in Lock/Unlock items
-        /// </summary>
-        [JsonProperty]
-        internal Dictionary<string, Dictionary<string, List<string>>> ItemIds2PermissionIds2Roles = new Dictionary<string, Dictionary<string, List<string>>>();
+        ///// <summary>
+        ///// Used in Lock/Unlock items
+        ///// </summary>
+        //[JsonProperty]
+        //internal Dictionary<string, Dictionary<string, List<string>>> ItemIds2PermissionIds2Roles = new Dictionary<string, Dictionary<string, List<string>>>();
 
         protected override void Loaded()
         {
@@ -54,7 +54,7 @@ namespace Cliver
                 if (MicrosoftCache is JObject)
                     microsoftCacheBytes = getBytes(MicrosoftCache);
                 else
-                    throw new Exception("MicrosoftCache is an unexpected type: " + MicrosoftCache.GetType() + "\r\nConsider deleting the config file: " + __Info.File);
+                    throw new Exception("MicrosoftCache is an unexpected type: " + MicrosoftCache.GetType() + "\r\nConsider removing the config file: " + __Info.File);
             }
         }
 
@@ -89,7 +89,7 @@ namespace Cliver
             else
                 using (var stream = new MemoryStream(microsoftCacheBytes))
                 using (var reader = new StreamReader(stream, System.Text.Encoding.ASCII))
-                    //return System.Text.Json.JsonSerializer.Deserialize(stream, typeof(object));//!!!MSAL seems to use Newtonsoft.Json serialization and do not understand System.Text.Json
+                    //return System.Text.Json.JsonSerializer.Deserialize(stream, typeof(object));//!!!MSAL seems to use Newtonsoft.Json serialization and not understand System.Text.Json
                     MicrosoftCache = JsonSerializer.Create().Deserialize(reader, typeof(JObject)) as JObject;
         }
 
@@ -106,7 +106,7 @@ namespace Cliver
 
         byte[] microsoftCacheBytes;
 
-        protected JObject GetMicrosoftCacheClone()
+        public JObject GetMicrosoftCacheClone()
         {
             if (microsoftCacheBytes == null)
                 return null;
