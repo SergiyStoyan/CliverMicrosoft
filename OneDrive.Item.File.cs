@@ -32,22 +32,19 @@ namespace Cliver
             }
             public CheckStatus GetCheckStatus()
             {
-                lock (this)
+                var i = Task.Run(() =>
                 {
-                    var i = Task.Run(() =>
-                    {
-                        return DriveItemRequestBuilder.Request().Select("id, publication").GetAsync();
-                    }).Result;
-                    //Log.Inform0(i.ToStringByJson());
-                    if (i.Publication == null)//if NULL then checkout is not supported
-                        return CheckStatus.NotSupported;
-                    string s = i.Publication.Level.ToLower();
-                    if (s == "published")
-                        return CheckStatus.CheckedIn;
-                    if (s == "checkout")
-                        return CheckStatus.CheckedOut;
-                    throw new Exception("Unknown Publication.Level: " + s);
-                }
+                    return DriveItemRequestBuilder.Request().Select("id, publication").GetAsync();
+                }).Result;
+                Log.Debug0(i.ToStringByJson());
+                if (i.Publication == null)//if NULL then checkout is not supported
+                    return CheckStatus.NotSupported;
+                string s = i.Publication.Level.ToLower();
+                if (s == "published")
+                    return CheckStatus.CheckedIn;
+                if (s == "checkout")
+                    return CheckStatus.CheckedOut;
+                throw new Exception("Unknown Publication.Level: " + s);
             }
 
             /// <summary>
@@ -55,21 +52,18 @@ namespace Cliver
             /// </summary>
             public CheckStatus CheckOut()
             {
-                lock (this)
+                CheckStatus cs = GetCheckStatus();
+                if (cs == CheckStatus.NotSupported)
+                    return cs;
+                if (cs == CheckStatus.CheckedOut)
+                    return CheckStatus.CheckedOutByNotMe;
+
+                Task.Run(() =>
                 {
-                    CheckStatus cs = GetCheckStatus();
-                    if (cs == CheckStatus.NotSupported)
-                        return cs;
-                    if (cs == CheckStatus.CheckedOut)
-                        return CheckStatus.CheckedOutByNotMe;
+                    DriveItemRequestBuilder.Checkout().Request().PostAsync();//not supported for a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
+                }).Wait();
 
-                    Task.Run(() =>
-                    {
-                        DriveItemRequestBuilder.Checkout().Request().PostAsync();//not supported for a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
-                    }).Wait();
-
-                    return GetCheckStatus();
-                }
+                return GetCheckStatus();
             }
 
             /// <summary>
@@ -80,47 +74,47 @@ namespace Cliver
             {
                 if (comment == null)
                     comment = "by " + Log.ProgramName;
-                lock (this)
+                Task.Run(() =>
                 {
-                    Task.Run(() =>
-                    {
-                        DriveItemRequestBuilder.Checkin(/*"published"*/null, comment).Request().PostAsync();//not supported for a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
-                    }).Wait();
+                    DriveItemRequestBuilder.Checkin(/*"published"*/null, comment).Request().PostAsync();//not supported for a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
+                }).Wait();
 
-                    return GetCheckStatus();
-                }
+                return GetCheckStatus();
+            }
+
+            public string Download2Folder(string localFolder, string localFileName = null)
+            {
+                if (localFileName == null)
+                    localFileName = DriveItem.Name;
+                string localFile = localFolder + Path.DirectorySeparatorChar + localFileName;
+                Download(localFile);
+                return localFile;
             }
 
             public void Download(string localFile)
             {
-                lock (this)
+                using (Stream s = Task.Run(() =>
                 {
-                    using (Stream s = Task.Run(() =>
+                    return DriveItemRequestBuilder.Content.Request().GetAsync();
+                }).Result
+                    )
+                {
+                    using (var fileStream = System.IO.File.Create(localFile))
                     {
-                        return DriveItemRequestBuilder.Content.Request().GetAsync();
-                    }).Result
-                        )
-                    {
-                        using (var fileStream = System.IO.File.Create(localFile))
-                        {
-                            s.Seek(0, SeekOrigin.Begin);
-                            s.CopyTo(fileStream);
-                        }
+                        s.Seek(0, SeekOrigin.Begin);
+                        s.CopyTo(fileStream);
                     }
                 }
             }
 
             public void Upload(string localFile)
             {
-                lock (this)
+                using (Stream s = System.IO.File.OpenRead(localFile))
                 {
-                    using (Stream s = System.IO.File.OpenRead(localFile))
+                    DriveItem = Task.Run(() =>
                     {
-                        DriveItem = Task.Run(() =>
-                        {
-                            return DriveItemRequestBuilder.Content.Request().PutAsync<DriveItem>(s);
-                        }).Result;
-                    }
+                        return DriveItemRequestBuilder.Content.Request().PutAsync<DriveItem>(s);
+                    }).Result;
                 }
             }
         }

@@ -47,14 +47,11 @@ If you want to access files on a specific list, all you need is the id of the li
 
         public Item GetItemByPath(string path)
         {
-            lock (this)
+            DriveItem driveItem = Task.Run(() =>
             {
-                DriveItem driveItem = Task.Run(() =>
-                {
-                    return Client.Me.Drive.Root.ItemWithPath(path).Request().GetAsync();
-                }).Result;
-                return Item.Get(this, driveItem);
-            }
+                return Client.Me.Drive.Root.ItemWithPath(path).Request().GetAsync();
+            }).Result;
+            return Item.Get(this, driveItem);
         }
 
         //public bool LockItem(string itemId, bool changePermissionsIfCheckOutIsNotSupported)
@@ -162,14 +159,11 @@ If you want to access files on a specific list, all you need is the id of the li
         /// <returns></returns>
         public Item GetItemByLink(string linkOrEncodedLinkOrShareId)
         {
-            lock (this)
+            DriveItem driveItem = Task.Run(() =>
             {
-                DriveItem driveItem = Task.Run(() =>
-                {
-                    return Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.Request()/*.Select("id, name, shared, remoteItem")*/.GetAsync();
-                }).Result;
-                return Item.Get(this, driveItem);
-            }
+                return Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.Request()/*.Select("id, name, shared, remoteItem")*/.GetAsync();
+            }).Result;
+            return Item.Get(this, driveItem);
         }
 
         /// <summary>
@@ -192,33 +186,27 @@ If you want to access files on a specific list, all you need is the id of the li
 
         public File UploadFile(string localFile, string remoteFolder, string remoteFileName = null)
         {
-            lock (this)
-            {
-                Folder d = CreateFolder(remoteFolder);
-                return d.UploadFile(localFile, remoteFileName);
-            }
+            Folder d = CreateFolder(remoteFolder);
+            return d.UploadFile(localFile, remoteFileName);
         }
 
         public Folder CreateFolder(string remoteFolder)
         {
             throw new NotImplementedException();
-            lock (this)
+            var i = new DriveItem
             {
-                var i = new DriveItem
-                {
-                    Name = "New Folder",
-                    Folder = new Microsoft.Graph.Folder { },
-                    AdditionalData = new Dictionary<string, object>()
+                Name = "New Folder",
+                Folder = new Microsoft.Graph.Folder { },
+                AdditionalData = new Dictionary<string, object>()
                     {
                         {"@microsoft.graph.conflictBehavior", "rename"}
                     }
-                };
-                DriveItem driveItem = Task.Run(() =>
-                {
-                    return Client.Me.Drive.Root.ItemWithPath("parentId").Children.Request().AddAsync(i);
-                }).Result;
-                return new Folder(this, driveItem);
-            }
+            };
+            DriveItem driveItem = Task.Run(() =>
+            {
+                return Client.Me.Drive.Root.ItemWithPath("parentId").Children.Request().AddAsync(i);
+            }).Result;
+            return new Folder(this, driveItem);
         }
     }
 }
