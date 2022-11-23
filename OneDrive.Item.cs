@@ -62,8 +62,6 @@ namespace Cliver
                     DriveId = DriveItem.ParentReference?.DriveId;//!!!does not work for Root and such
                 if (DriveId == null)
                     throw new Exception("Could not get DriveId from DriveItem:\r\n" + DriveItem.ToStringByJson());
-
-                DriveItemRequestBuilder = OneDrive.Client.Me.Drives[DriveId].Items[ItemId];
             }
 
             public OneDrive OneDrive { get; private set; }
@@ -87,7 +85,16 @@ namespace Cliver
             }
             DriveItem driveItem = null;
 
-            public IDriveItemRequestBuilder DriveItemRequestBuilder { get; private set; }
+            public IDriveItemRequestBuilder DriveItemRequestBuilder
+            {
+                get
+                {
+                    if (driveItemRequestBuilder == null)
+                        driveItemRequestBuilder = OneDrive.Client.Me.Drives[DriveId].Items[ItemId];
+                    return driveItemRequestBuilder;
+                }
+            }
+            IDriveItemRequestBuilder driveItemRequestBuilder;
 
             public enum LinkRoles
             {

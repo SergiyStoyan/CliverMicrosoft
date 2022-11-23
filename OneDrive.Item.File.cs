@@ -23,6 +23,17 @@ namespace Cliver
             {
             }
 
+            //public bool IsCheckInSupported
+            //{
+            //    get
+            //    {
+            //        if (checkInIsSupported == null)
+            //            checkInIsSupported = GetCheckStatus() != CheckStatus.NotSupported;
+            //        return (bool)checkInIsSupported;
+            //    }
+            //}
+            //bool? checkInIsSupported = null;
+
             public enum CheckStatus
             {
                 NotSupported,
@@ -56,8 +67,11 @@ namespace Cliver
                 if (cs == CheckStatus.NotSupported)
                     return cs;
                 if (cs == CheckStatus.CheckedOut && CheckIn() != CheckStatus.CheckedIn)
+                    //TBD to improve diagnostic, get whom it checked out to:
+                    //https://graph.microsoft.com/v1.0/sites/{site-id}/lists/{list-id}/items/{item-id}/fields/$expand=CheckoutUser
+                    //OneDrive.Client.Me.Drives[DriveId].List.Items[ItemId].Fields.Request().Expand("CheckoutUser").GetAsync();!!!List is NULL
                     if (throwExceptionIfFailed)
-                        throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nStatus of the file: " + cs.ToString());
+                        throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + CheckStatus.CheckedOutByNotMe.ToString());
                     else
                         return CheckStatus.CheckedOutByNotMe;
 
@@ -68,7 +82,7 @@ namespace Cliver
 
                 cs = GetCheckStatus();
                 if (cs != CheckStatus.CheckedOut && throwExceptionIfFailed)
-                    throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nStatus of the file: " + cs.ToString());
+                    throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + cs.ToString());
                 return cs;
             }
 
@@ -86,8 +100,8 @@ namespace Cliver
                 }).Wait();
 
                 CheckStatus cs = GetCheckStatus();
-                if (cs != CheckStatus.CheckedOut && throwExceptionIfFailed)
-                    throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nStatus of the file: " + cs.ToString());
+                if (cs != CheckStatus.NotSupported && cs != CheckStatus.CheckedIn && throwExceptionIfFailed)
+                    throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + cs.ToString());
                 return cs;
             }
 
@@ -125,6 +139,11 @@ namespace Cliver
                         return DriveItemRequestBuilder.Content.Request().PutAsync<DriveItem>(s);
                     }).Result;
                 }
+            }
+
+            public Folder GetFolder()
+            {
+                return (Folder)GetParent();
             }
         }
     }
