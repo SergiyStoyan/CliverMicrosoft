@@ -50,27 +50,33 @@ namespace Cliver
             /// <summary>
             /// (!)Not supported on a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
             /// </summary>
-            public CheckStatus CheckOut()
+            public CheckStatus CheckOut(bool throwExceptionIfFailed = false)
             {
                 CheckStatus cs = GetCheckStatus();
                 if (cs == CheckStatus.NotSupported)
                     return cs;
-                if (cs == CheckStatus.CheckedOut)
-                    return CheckStatus.CheckedOutByNotMe;
+                if (cs == CheckStatus.CheckedOut && CheckIn() != CheckStatus.CheckedIn)
+                    if (throwExceptionIfFailed)
+                        throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nStatus of the file: " + cs.ToString());
+                    else
+                        return CheckStatus.CheckedOutByNotMe;
 
                 Task.Run(() =>
                 {
                     DriveItemRequestBuilder.Checkout().Request().PostAsync();//not supported for a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
                 }).Wait();
 
-                return GetCheckStatus();
+                cs = GetCheckStatus();
+                if (cs != CheckStatus.CheckedOut && throwExceptionIfFailed)
+                    throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nStatus of the file: " + cs.ToString());
+                return cs;
             }
 
             /// <summary>
             /// (!)Not supported on a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
             /// </summary>
             /// <param name="comment"></param>
-            public CheckStatus CheckIn(string comment = null)
+            public CheckStatus CheckIn(string comment = null, bool throwExceptionIfFailed = false)
             {
                 if (comment == null)
                     comment = "by " + Log.ProgramName;
@@ -79,7 +85,10 @@ namespace Cliver
                     DriveItemRequestBuilder.Checkin(/*"published"*/null, comment).Request().PostAsync();//not supported for a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
                 }).Wait();
 
-                return GetCheckStatus();
+                CheckStatus cs = GetCheckStatus();
+                if (cs != CheckStatus.CheckedOut && throwExceptionIfFailed)
+                    throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nStatus of the file: " + cs.ToString());
+                return cs;
             }
 
             public string Download2Folder(string localFolder, string localFileName = null)
