@@ -8,8 +8,7 @@
 	  <Copyright>Sergiy Stoyan</Copyright>
 	  <Authors>Sergiy Stoyan</Authors>
 	  <Company>CliverSoft</Company>
-	  <Version>2.2.0</Version>
-	  <Title>Cross-platform routines needed in the most applications.</Title>
+	  <Version>2.2.1</Version>
 	  <PackageProjectUrl>https://github.com/sergiystoyan/CliverGoogleRoutines</PackageProjectUrl>
 	  <Description>	  </Description>
 	  <PackageTags>google API</PackageTags>
@@ -31,11 +30,11 @@
 	<ItemGroup>
 	  <PackageReference Include="Microsoft.Graph" Version="4.47.0" />
 	  <PackageReference Include="Microsoft.Identity.Client" Version="4.47.2" />
-	  <PackageReference Include="Newtonsoft.Json" Version="13.0.2-beta2" />
+	  <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\PdfDocumentParser\CliverRoutines\CliverRoutines.csproj" />
+	  <ProjectReference Include="..\CliverRoutines\CliverRoutines.csproj" />
 	</ItemGroup>
 
 </Project>

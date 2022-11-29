@@ -47,7 +47,7 @@ namespace Cliver
                 {
                     return DriveItemRequestBuilder.Request().Select("id, publication").GetAsync();
                 }).Result;
-                Log.Debug0(i.ToStringByJson());
+                //Log.Debug0(i.ToStringByJson());
                 if (i.Publication == null)//if NULL then checkout is not supported
                     return CheckStatus.NotSupported;
                 string s = i.Publication.Level.ToLower();
