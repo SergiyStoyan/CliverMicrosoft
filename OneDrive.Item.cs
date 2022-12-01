@@ -19,7 +19,7 @@ namespace Cliver
     {
         abstract public class Item
         {
-            public static Item Get(OneDrive oneDrive, DriveItem driveItem)
+            public static Item New(OneDrive oneDrive, DriveItem driveItem)
             {
                 if (driveItem.File != null)
                     return new File(oneDrive, driveItem);
@@ -27,15 +27,6 @@ namespace Cliver
                     return new Folder(oneDrive, driveItem);
                 throw new Exception("Unknown DriveItem object type: " + driveItem.ToStringByJson());
             }
-
-            //public static Item Create(OneDrive oneDrive, string driveId, string itemId)
-            //{
-            //    if (driveItem.File != null)
-            //        return new File(oneDrive, driveItem);
-            //    if (driveItem.Folder != null)
-            //        return new Folder(oneDrive, driveItem);
-            //    throw new Exception("Unknown DriveItem object type: " + driveItem.ToStringByJson());
-            //}
 
             protected Item(OneDrive oneDrive, DriveItem driveItem)
             {
@@ -122,20 +113,29 @@ namespace Cliver
             {
                 return Task.Run(() =>
                 {
-                    return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Request().Select(select).Expand(expand).GetAsync();
+                    //return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Request().Select(select).Expand(expand).GetAsync();//according to reports this way is sometimes buggy
+                    var queryOptions = new List<QueryOption>();
+                    if (select != null)
+                        queryOptions.Add(new QueryOption("select", select));
+                    if (expand != null)
+                        queryOptions.Add(new QueryOption("expand", expand));
+                    return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Request(queryOptions).GetAsync();
                 }).Result;
             }
 
             public Item GetParent()
             {
-                if (DriveItem.ParentReference?.Id == null)
-                    DriveItem.ParentReference = GetDriveItem("id, ParentReference").ParentReference;
+                //if (DriveItem.ParentReference?.Id == null)
+                DriveItem.ParentReference = GetDriveItem("ParentReference").ParentReference;
 
                 DriveItem parentDriveItem = Task.Run(() =>
                 {
                     return OneDrive.Client.Me.Drives[DriveId].Items[DriveItem.ParentReference.Id].Request().GetAsync();
                 }).Result;
-                return Get(OneDrive, parentDriveItem);
+
+                if (parentDriveItem == null)
+                    return null;
+                return New(OneDrive, parentDriveItem);
             }
 
             public void Delete()
@@ -144,6 +144,32 @@ namespace Cliver
                 {
                     DriveItemRequestBuilder.Request().DeleteAsync();
                 }).Wait();
+            }
+
+            /// <summary>
+            /// Identifiers useful for SharePoint REST compatibility. Read-only.
+            /// </summary>
+            public SharepointIds SharepointIds
+            {
+                get
+                {
+                    if (DriveItem.SharepointIds == null)
+                        DriveItem.SharepointIds = GetDriveItem(null, "SharepointIds").SharepointIds;
+                    return DriveItem.SharepointIds;
+                }
+            }
+
+            /// <summary>
+            /// For drives in SharePoint, the associated document library list item. Read-only. Nullable.
+            /// </summary>
+            public ListItem ListItem
+            {
+                get
+                {
+                    if (DriveItem.ListItem == null)
+                        DriveItem.ListItem = GetDriveItem(null, "ListItem").ListItem;
+                    return DriveItem.ListItem;
+                }
             }
         }
     }

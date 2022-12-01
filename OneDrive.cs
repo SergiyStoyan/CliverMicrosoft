@@ -51,7 +51,7 @@ If you want to access files on a specific list, all you need is the id of the li
             {
                 return Client.Me.Drive.Root.ItemWithPath(path).Request().GetAsync();
             }).Result;
-            return Item.Get(this, driveItem);
+            return Item.New(this, driveItem);
         }
 
         //public bool LockItem(string itemId, bool changePermissionsIfCheckOutIsNotSupported)
@@ -163,7 +163,7 @@ If you want to access files on a specific list, all you need is the id of the li
             {
                 return Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.Request()/*.Select("id, name, shared, remoteItem")*/.GetAsync();
             }).Result;
-            return Item.Get(this, driveItem);
+            return Item.New(this, driveItem);
         }
 
         /// <summary>
