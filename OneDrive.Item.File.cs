@@ -32,7 +32,6 @@ namespace Cliver
             //        return (bool)checkInIsSupported;
             //    }
             //}
-            //bool? checkInIsSupported = null;
 
             public enum CheckStatus
             {
@@ -43,13 +42,20 @@ namespace Cliver
             }
             public CheckStatus GetCheckStatus()
             {
+                if (checkInIsSupported == false)
+                    return CheckStatus.NotSupported;
+
                 var i = Task.Run(() =>
                 {
                     return DriveItemRequestBuilder.Request().Select("id, publication").GetAsync();
                 }).Result;
                 //Log.Debug0(i.ToStringByJson());
                 if (i.Publication == null)//if NULL then checkout is not supported
+                {
+                    checkInIsSupported = false;
                     return CheckStatus.NotSupported;
+                }
+                checkInIsSupported = true;
                 string s = i.Publication.Level.ToLower();
                 if (s == "published")
                     return CheckStatus.CheckedIn;
@@ -57,6 +63,7 @@ namespace Cliver
                     return CheckStatus.CheckedOut;
                 throw new Exception("Unknown Publication.Level: " + s);
             }
+            bool? checkInIsSupported = null;
 
             /// <summary>
             /// (!)Not supported on a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
@@ -67,13 +74,33 @@ namespace Cliver
                 if (cs == CheckStatus.NotSupported)
                     return cs;
                 if (cs == CheckStatus.CheckedOut && CheckIn() != CheckStatus.CheckedIn)
-                    //TBD to improve diagnostic, get whom it checked out to:
-                    //https://graph.microsoft.com/v1.0/sites/{site-id}/lists/{list-id}/items/{item-id}/fields/$expand=CheckoutUser
-                    //OneDrive.Client.Me.Drives[DriveId].List.Items[ItemId].Fields.Request().Expand("CheckoutUser").GetAsync();!!!List is NULL
                     if (throwExceptionIfFailed)
                         throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + CheckStatus.CheckedOutByNotMe.ToString());
                     else
                         return CheckStatus.CheckedOutByNotMe;
+                //if (cs == CheckStatus.CheckedOut)//must work on sharepoint
+                //{//get who the item is checked out by:
+                //    if (SharepointIds == null)
+                //        throw new Exception("SharepointIds are NULL while the DriveItem status is CheckedOut.");
+                //    //check if the item is checkedout by someone else
+                //    FieldValueSet fieldValueSet = Task.Run(() =>
+                //    {
+                //        return OneDrive.Client.Sites[SharepointIds.SiteId].Lists[ListItem.Id].Items[ItemId].Fields.Request().Expand("CheckoutUser").GetAsync();
+                //    }).Result;
+                //    Log.Debug0(fieldValueSet.AdditionalData.ToStringByJson());
+                //    object checkoutUser = fieldValueSet.AdditionalData["CheckoutUser"];
+                //    if (checkoutUser == null)
+                //        throw new Exception("Could not get checkoutUser for the DriveItem.");
+                //    //who checked out???
+                //    //if(checkoutUser is Me)
+                //    //    return CheckStatus.CheckedOut;
+                //    if (throwExceptionIfFailed)
+                //        throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl
+                //            + "\r\nThe file is checked out by user: " + checkoutUser.ToString()
+                //            );
+                //    else
+                //        return CheckStatus.CheckedOutByNotMe;
+                //}
 
                 Task.Run(() =>
                 {
@@ -83,6 +110,47 @@ namespace Cliver
                 cs = GetCheckStatus();
                 if (cs != CheckStatus.CheckedOut && throwExceptionIfFailed)
                     throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + cs.ToString());
+
+                //if (cs != CheckStatus.CheckedOut)
+                //{//get who keeps it open (for Excel sheets):                    
+                //    DriveItem di = GetDriveItem(null, "activities");
+                //    Log.Debug0(di.AdditionalData.ToStringByJson());
+
+                //    Log.Debug0(SharepointIds.ToStringByJson());
+                //    //Log.Debug0(ListItem.SharepointIds.ToStringByJson());
+
+                //    object activities = di.AdditionalData["activities"];
+                //    Log.Debug0(activities.GetType().ToString());
+                //    Log.Debug0(ListItem.AdditionalData.ToStringByJson());
+
+
+                //    var t = Task.Run(() =>
+                //    {
+                //            //var queryOptions = new List<QueryOption>();
+                //            //    queryOptions.Add(new QueryOption("expand", "activities"));
+                //        return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].GetActivitiesByInterval(DateTime.Now.AddMinutes(-20).ToString("yyyy-MM-dd hh:mm:ss"), DateTime.Now.AddMinutes(2).ToString("yyyy-MM-dd hh:mm:ss"), "hour").Request().GetAsync();
+                //    }).Result;
+                //    Log.Debug0(t.ToStringByJson());
+
+                //    FieldValueSet fieldValueSet = Task.Run(() =>
+                //    {
+                //        var queryOptions = new List<QueryOption>() { new QueryOption("expand", "activities") };
+                //        return OneDrive.Client.Sites[SharepointIds.SiteId].Lists[SharepointIds.ListItemId].Items[ItemId].Fields.Request(queryOptions).GetAsync();
+                //    }).Result;//!!!The problem seems to be because of missing oAuth permissions for Sites on the client.
+                //    Log.Debug0(fieldValueSet.AdditionalData.ToStringByJson());
+
+                //    //ItemActivityStat itemActivityStat = (ItemActivityStat)di.AdditionalData["activities"];
+                //    //who keeps it open??? 
+                //    //itemActivityStat.
+
+
+
+
+
+
+                //    if (throwExceptionIfFailed)
+                //        throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + cs.ToString());
+                //}
                 return cs;
             }
 
@@ -92,6 +160,9 @@ namespace Cliver
             /// <param name="comment"></param>
             public CheckStatus CheckIn(string comment = null, bool throwExceptionIfFailed = false)
             {
+                if (GetCheckStatus() == CheckStatus.NotSupported)
+                    return CheckStatus.NotSupported;
+
                 if (comment == null)
                     comment = "by " + Log.ProgramName;
                 Task.Run(() =>
@@ -100,7 +171,7 @@ namespace Cliver
                 }).Wait();
 
                 CheckStatus cs = GetCheckStatus();
-                if (cs != CheckStatus.NotSupported && cs != CheckStatus.CheckedIn && throwExceptionIfFailed)
+                if (cs != CheckStatus.CheckedIn && throwExceptionIfFailed)
                     throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + cs.ToString());
                 return cs;
             }

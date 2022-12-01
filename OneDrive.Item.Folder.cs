@@ -36,6 +36,36 @@ namespace Cliver
                     return new File(OneDrive, driveItem);
                 }
             }
+
+            public List<Item> GetChildren()
+            {
+                DriveItem.Children = Task.Run(() =>
+                {
+                    return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Children.Request().GetAsync();
+                }).Result;
+
+                return DriveItem.Children?.Select(a => New(OneDrive, a)).ToList();
+            }
+
+            public List<File> GetFiles()
+            {
+                DriveItem.Children = Task.Run(() =>
+                {
+                    return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Children.Request().GetAsync();
+                }).Result;
+
+                return DriveItem.Children.Where(a => a.File != null).Select(a => new File(OneDrive, a)).ToList();
+            }
+
+            public List<Folder> GetFolders()
+            {
+                DriveItem.Children = Task.Run(() =>
+                {
+                    return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Children.Request().GetAsync();
+                }).Result;
+
+                return DriveItem.Children.Where(a => a.Folder != null).Select(a => new Folder(OneDrive, a)).ToList();
+            }
         }
     }
 }
