@@ -54,36 +54,6 @@ If you want to access files on a specific list, all you need is the id of the li
             return Item.New(this, driveItem);
         }
 
-        //public bool LockItem(string itemId, bool changePermissionsIfCheckOutIsNotSupported)
-        //{
-        //    lock (this)
-        //    {
-        //        var s = CheckOut(itemId);
-        //        if (s == ItemCheckStatus.CheckedOut)
-        //            return true;
-        //        if (s == ItemCheckStatus.CheckedIn)
-        //            return false;
-        //        if (!changePermissionsIfCheckOutIsNotSupported)
-        //            return false;
-        //        changePermissions(itemId, true);
-        //        return true;
-        //    }
-        //}
-
-        //public bool UnlockItem(string itemId)
-        //{
-        //    lock (this)
-        //    {
-        //        var s = CheckIn(itemId);
-        //        if (s == ItemCheckStatus.CheckedIn)
-        //            return true;
-        //        if (s == ItemCheckStatus.CheckedOut)
-        //            return false;
-        //        changePermissions(itemId, false);
-        //        return true;
-        //    }
-        //}
-
         /// <summary>
         /// !!!when 'Can view' a user still can hange the file! Probabaly it is due to 'anybody with this link can edit the file'
         /// 
@@ -184,29 +154,35 @@ If you want to access files on a specific list, all you need is the id of the li
             return "u!" + base64Value.TrimEnd('=').Replace('/', '_').Replace('+', '-');
         }
 
-        public File UploadFile(string localFile, string remoteFolder, string remoteFileName = null)
+        public IEnumerable<Item> Search(string pattern)
         {
-            Folder d = CreateFolder(remoteFolder);
-            return d.UploadFile(localFile, remoteFileName);
+            IDriveSearchCollectionPage driveItems = Task.Run(() =>
+            {
+                return Client.Me.Drive.Search(pattern).Request().GetAsync();
+            }).Result;
+
+            foreach (DriveItem item in driveItems)
+                yield return Item.New(this, item);
         }
 
-        public Folder CreateFolder(string remoteFolder)
+        public Folder GetFolder(string remoteFolder, bool createIfNotExists)
         {
-            throw new NotImplementedException();
-            var i = new DriveItem
-            {
-                Name = "New Folder",
-                Folder = new Microsoft.Graph.Folder { },
-                AdditionalData = new Dictionary<string, object>()
-                    {
-                        {"@microsoft.graph.conflictBehavior", "rename"}
-                    }
-            };
-            DriveItem driveItem = Task.Run(() =>
-            {
-                return Client.Me.Drive.Root.ItemWithPath("parentId").Children.Request().AddAsync(i);
-            }).Result;
-            return new Folder(this, driveItem);
+            return Folder.New(this, remoteFolder, createIfNotExists);
+        }
+
+        public File GetFile(string remoteFile, bool createIfNotExists)
+        {
+            return File.New(this, remoteFile, createIfNotExists);
+        }
+
+        public Folder GetFolder(string linkOrEncodedLinkOrShareId)
+        {
+            return (Folder)GetItemByLink(linkOrEncodedLinkOrShareId);
+        }
+
+        public File GetFile(string linkOrEncodedLinkOrShareId)
+        {
+            return (File)GetItemByLink(linkOrEncodedLinkOrShareId);
         }
     }
 }
