@@ -109,7 +109,7 @@ namespace Cliver
                 }
             }
 
-            public DriveItem GetDriveItem(string select = null, string expand = null)
+            public DriveItem GetDriveItem(string select = null, string expand = null, string selectWithoutPrefix = null, string expandWithoutPrefix = null)
             {
                 return Task.Run(() =>
                 {
@@ -119,6 +119,10 @@ namespace Cliver
                         queryOptions.Add(new QueryOption("$select", select));
                     if (expand != null)
                         queryOptions.Add(new QueryOption("$expand", expand));
+                    if (selectWithoutPrefix != null)
+                        queryOptions.Add(new QueryOption("select", selectWithoutPrefix));
+                    if (expandWithoutPrefix != null)
+                        queryOptions.Add(new QueryOption("expand", expandWithoutPrefix));
                     return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Request(queryOptions).GetAsync();
                 }).Result;
             }
