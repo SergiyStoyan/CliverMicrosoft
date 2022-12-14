@@ -19,6 +19,41 @@ namespace Cliver
     {
         public class File : Item
         {
+            public static File New(OneDrive oneDrive, string remoteFile, bool createIfNotExists)
+            {
+                Item item = oneDrive.GetItemByPath(remoteFile);
+                if (item != null)
+                {
+                    if (item is File)
+                        return (File)item;
+                    throw new Exception("Remote path points to not a file: " + remoteFile);
+                }
+                if (!createIfNotExists)
+                    return null;
+
+                Match m = Regex.Match(remoteFile, @"(?'ParentFolder'.*)[\\\/]+(?'Name'.*)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                if (!m.Success)
+                    throw new Exception("Remote file path could not be separated: " + remoteFile);
+
+                Folder parentFolder = Folder.New(oneDrive, m.Groups["ParentFolder"].Value, true);
+                DriveItem di = new DriveItem
+                {
+                    Name = m.Groups["Name"].Value,
+                    File = new Microsoft.Graph.File
+                    {
+                    },
+                    AdditionalData = new Dictionary<string, object>()
+                    {
+                        {"@microsoft.graph.conflictBehavior", "rename"}
+                    }
+                };
+                DriveItem driveItem = Task.Run(() =>
+                {
+                    return parentFolder.DriveItemRequestBuilder.Children.Request().AddAsync(di);
+                }).Result;
+                return new File(oneDrive, driveItem);
+            }
+
             internal File(OneDrive oneDrive, DriveItem driveItem) : base(oneDrive, driveItem)
             {
             }

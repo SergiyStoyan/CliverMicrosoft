@@ -125,7 +125,6 @@ namespace Cliver
 
             public Item GetParent()
             {
-                //if (DriveItem.ParentReference?.Id == null)
                 DriveItem.ParentReference = GetDriveItem("ParentReference").ParentReference;
 
                 DriveItem parentDriveItem = Task.Run(() =>
@@ -170,6 +169,25 @@ namespace Cliver
                         DriveItem.ListItem = GetDriveItem(null, "ListItem").ListItem;
                     return DriveItem.ListItem;
                 }
+            }
+
+            public IEnumerable<Item> Search(string pattern)
+            {
+                IDriveItemSearchCollectionPage driveItems = Task.Run(() =>
+                {
+                    return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Search(pattern).Request().GetAsync();
+                }).Result;
+
+                foreach (DriveItem item in driveItems)
+                    yield return New(OneDrive, item);
+            }
+
+            public string GetPath()
+            {
+                DriveItem di = GetDriveItem("ParentReference, Name");
+                DriveItem.ParentReference = di.ParentReference;
+                DriveItem.Name = di.Name;
+                return DriveItem.ParentReference.Path + "/" + DriveItem.Name;
             }
         }
     }
