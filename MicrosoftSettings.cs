@@ -37,12 +37,6 @@ namespace Cliver
         [JsonProperty]
         public string MicrosoftAccount { get; internal set; }
 
-        ///// <summary>
-        ///// Used in Lock/Unlock items
-        ///// </summary>
-        //[JsonProperty]
-        //internal Dictionary<string, Dictionary<string, List<string>>> ItemIds2PermissionIds2Roles = new Dictionary<string, Dictionary<string, List<string>>>();
-
         protected override void Loaded()
         {
             if (MicrosoftCache == null)
