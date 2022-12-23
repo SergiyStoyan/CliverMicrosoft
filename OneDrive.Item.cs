@@ -109,23 +109,28 @@ namespace Cliver
                 }
             }
 
-            public DriveItem GetDriveItem(string select = null, string expand = null)
+            public DriveItem GetDriveItem(string select = null, string expand = null, string selectWithoutPrefix = null, string expandWithoutPrefix = null)
             {
                 return Task.Run(() =>
                 {
                     //return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Request().Select(select).Expand(expand).GetAsync();//according to reports this way is sometimes buggy
                     var queryOptions = new List<QueryOption>();
                     if (select != null)
-                        queryOptions.Add(new QueryOption("select", select));
+                        queryOptions.Add(new QueryOption("$select", select));
                     if (expand != null)
-                        queryOptions.Add(new QueryOption("expand", expand));
+                        queryOptions.Add(new QueryOption("$expand", expand));
+                    if (selectWithoutPrefix != null)
+                        queryOptions.Add(new QueryOption("select", selectWithoutPrefix));
+                    if (expandWithoutPrefix != null)
+                        queryOptions.Add(new QueryOption("expand", expandWithoutPrefix));
                     return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Request(queryOptions).GetAsync();
                 }).Result;
             }
 
-            public Item GetParent()
+            public Item GetParent(bool refresh = true)
             {
-                DriveItem.ParentReference = GetDriveItem("ParentReference").ParentReference;
+                if (refresh || DriveItem.ParentReference == null)
+                    DriveItem.ParentReference = GetDriveItem("ParentReference").ParentReference;
 
                 DriveItem parentDriveItem = Task.Run(() =>
                 {
@@ -153,7 +158,7 @@ namespace Cliver
                 get
                 {
                     if (DriveItem.SharepointIds == null)
-                        DriveItem.SharepointIds = GetDriveItem(null, "SharepointIds").SharepointIds;
+                        DriveItem.SharepointIds = GetDriveItem("SharepointIds").SharepointIds;
                     return DriveItem.SharepointIds;
                 }
             }
@@ -166,7 +171,7 @@ namespace Cliver
                 get
                 {
                     if (DriveItem.ListItem == null)
-                        DriveItem.ListItem = GetDriveItem(null, "ListItem").ListItem;
+                        DriveItem.ListItem = GetDriveItem("ListItem").ListItem;
                     return DriveItem.ListItem;
                 }
             }
@@ -182,12 +187,28 @@ namespace Cliver
                     yield return New(OneDrive, item);
             }
 
-            public string GetPath()
+            public string GetPath(bool refresh = true)
             {
-                DriveItem di = GetDriveItem("ParentReference, Name");
-                DriveItem.ParentReference = di.ParentReference;
-                DriveItem.Name = di.Name;
+                if (refresh)
+                {
+                    DriveItem di = GetDriveItem("ParentReference, Name");
+                    DriveItem.ParentReference = di.ParentReference;
+                    DriveItem.Name = di.Name;
+                }
                 return DriveItem.ParentReference.Path + "/" + DriveItem.Name;
+            }
+
+            public FieldValueSet GetFieldValueSet(string select = null, string expand = null)
+            {
+                return Task.Run(() =>
+                {
+                    var queryOptions = new List<QueryOption>();
+                    if (select != null)
+                        queryOptions.Add(new QueryOption("$select", select));
+                    if (expand != null)
+                        queryOptions.Add(new QueryOption("$expand", expand));
+                    return OneDrive.Client.Sites[SharepointIds.SiteId].Lists[ListItem.Id].Items[ItemId].Fields.Request(queryOptions).GetAsync();
+                }).Result;
             }
         }
     }

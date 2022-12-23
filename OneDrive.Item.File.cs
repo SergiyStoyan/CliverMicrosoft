@@ -160,9 +160,7 @@ namespace Cliver
 
 
                 //    var t = Task.Run(() =>
-                //    {
-                //            //var queryOptions = new List<QueryOption>();
-                //            //    queryOptions.Add(new QueryOption("expand", "activities"));
+                //    {!!!GetActivitiesByInterval gives not user names
                 //        return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].GetActivitiesByInterval(DateTime.Now.AddMinutes(-20).ToString("yyyy-MM-dd hh:mm:ss"), DateTime.Now.AddMinutes(2).ToString("yyyy-MM-dd hh:mm:ss"), "hour").Request().GetAsync();
                 //    }).Result;
                 //    Log.Debug0(t.ToStringByJson());
