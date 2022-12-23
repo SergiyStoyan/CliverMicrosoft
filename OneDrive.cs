@@ -17,33 +17,32 @@ namespace Cliver
 {
     public partial class OneDrive : MicrosoftService
     {
-        public OneDrive(string clientId, string[] scopes, MicrosoftUserSettings microsoftUserSettings, string tenantId = "common")
-            : base(clientId, scopes, microsoftUserSettings, tenantId)
+        public OneDrive(MicrosoftSettings microsoftSettings) : base(microsoftSettings)
         {
         }
 
-        public void test(string itemId)
-        {
-            var i = Task.Run(() =>
-            {/*
-              .../me/drive/root/children
-Drive on SharePoint's sites works in the same way, but instead of me you should provide global Id of the site you want to access (global Id is <hostName>,<siteCollectionId>,<siteId>).
-In conclusion: this endpoint gives us a list of files on a specified site's default drive:
-.../Sharepoint/sites/<hostName>,<siteCollectionId>,<siteId>/drive/root/children
-If you want to access files on a specific list, all you need is the id of the list:
-.../Sharepoint/sites/<hostName>,<siteCollectionId>,<siteId>/lists/<listId>/drive/root/children
-                */
+//        public void test(string itemId)
+//        {
+//            var i = Task.Run(() =>
+//            {/*
+//              .../me/drive/root/children
+//Drive on SharePoint's sites works in the same way, but instead of me you should provide global Id of the site you want to access (global Id is <hostName>,<siteCollectionId>,<siteId>).
+//In conclusion: this endpoint gives us a list of files on a specified site's default drive:
+//.../Sharepoint/sites/<hostName>,<siteCollectionId>,<siteId>/drive/root/children
+//If you want to access files on a specific list, all you need is the id of the list:
+//.../Sharepoint/sites/<hostName>,<siteCollectionId>,<siteId>/lists/<listId>/drive/root/children
+//                */
 
-                string siteId = Regex.Replace(itemId, @"(?<=.*?sharepoint.com).*$", "");
-                //Log.Inform(site)
-                string driveId = Regex.Replace(itemId, @"(\!.*)", "");
-                IDriveItemRequestBuilder driveItemRequestBuilder = Client.Sites[siteId].Drives[driveId].Items[itemId];
-                return driveItemRequestBuilder.Request().Select("id, publication").GetAsync();
+//                string siteId = Regex.Replace(itemId, @"(?<=.*?sharepoint.com).*$", "");
+//                //Log.Inform(site)
+//                string driveId = Regex.Replace(itemId, @"(\!.*)", "");
+//                IDriveItemRequestBuilder driveItemRequestBuilder = Client.Sites[siteId].Drives[driveId].Items[itemId];
+//                return driveItemRequestBuilder.Request().Select("id, publication").GetAsync();
 
-                //return getDriveItemRequestBuilder(itemId).Request().Select("id, Shared, CreatedBy, CreatedByUser, name").GetAsync();
-                //return Client.Shares[itemId].DriveItem.Request().Select("id, name, shared").GetAsync();
-            }).Result;
-        }
+//                //return getDriveItemRequestBuilder(itemId).Request().Select("id, Shared, CreatedBy, CreatedByUser, name").GetAsync();
+//                //return Client.Shares[itemId].DriveItem.Request().Select("id, name, shared").GetAsync();
+//            }).Result;
+//        }
 
         public Item GetItemByPath(string path)
         {

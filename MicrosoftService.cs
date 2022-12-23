@@ -13,29 +13,12 @@ namespace Cliver
 {
     public class MicrosoftService
     {
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="clientId"></param>
-        /// <param name="scopes"></param>
-        /// <param name="microsoftUserSettings"></param>
-        /// <param name="tenantId">
-        /// Multi-tenant apps can use "common",
-        /// single-tenant apps must use the tenant ID from the Azure portal
-        /// </param>
-        public MicrosoftService(string clientId, IEnumerable<string> scopes, MicrosoftUserSettings microsoftUserSettings, string tenantId = "common")
+        public MicrosoftService(MicrosoftSettings microsoftSettings)
         {
-            ClientId = clientId;
-            Scopes = scopes;
-            MicrosoftUserSettings = microsoftUserSettings;
-            TenantId = tenantId;
-
+            MicrosoftSettings = microsoftSettings;
             Client = createClient();
         }
-        public readonly string ClientId;
-        public readonly IEnumerable<string> Scopes;
-        public readonly MicrosoftUserSettings MicrosoftUserSettings;
-        public readonly string TenantId;
+        public readonly MicrosoftSettings MicrosoftSettings;
 
         public string MicrosoftAccount
         {
@@ -51,8 +34,8 @@ namespace Cliver
 
         GraphServiceClient createClient()
         {
-            application = PublicClientApplicationBuilder.Create(ClientId)
-            .WithTenantId(TenantId)
+            application = PublicClientApplicationBuilder.Create(MicrosoftSettings.ClientId)
+            .WithTenantId(MicrosoftSettings.TenantId)
             .WithRedirectUri("http://localhost")//to use the default browser
             .Build();
 
@@ -62,8 +45,8 @@ namespace Cliver
             //var cacheHelper = await Microsoft.Identity.Client.Extensions.Msal.MsalCacheHelper.CreateAsync(storageProperties);
             //cacheHelper.RegisterCache(application.UserTokenCache);
 
-            application.UserTokenCache.SetAfterAccess(MicrosoftUserSettings.AfterAccessNotification);
-            application.UserTokenCache.SetBeforeAccess(MicrosoftUserSettings.BeforeAccessNotification);
+            application.UserTokenCache.SetAfterAccess(MicrosoftSettings.AfterAccessNotification);
+            application.UserTokenCache.SetBeforeAccess(MicrosoftSettings.BeforeAccessNotification);
             //application.UserTokenCache.SetBeforeWrite((TokenCacheNotificationArgs a) => { });
             //application.UserTokenCache.SetCacheOptions(new CacheOptions { UseSharedCache = false });
 
@@ -80,23 +63,23 @@ namespace Cliver
         {
             try
             {
-                authenticationResult = await application.AcquireTokenSilent(Scopes, account).ExecuteAsync();
+                authenticationResult = await application.AcquireTokenSilent(MicrosoftSettings.Scopes, account).ExecuteAsync();
             }
             catch (MsalUiRequiredException e)
             {
                 //if (e.ErrorCode != MsalError.InvalidGrantError && e.ErrorCode != MsalError.UserNullError /* || e.Classification == UiRequiredExceptionClassification.None*/)
                 //    throw;
                 OnInteractiveAuthentication?.Invoke();
-                authenticationResult = await application.AcquireTokenInteractive(Scopes)
+                authenticationResult = await application.AcquireTokenInteractive(MicrosoftSettings.Scopes)
                     //.WithUseEmbeddedWebView(true)!!!intermittently gives the error (even when running in an STA thread): ActiveX control '8856f961-340a-11d0-a96b-00c04fd705a2' cannot be instantiated because the current thread is not in a single-threaded apartment. 
                     .WithUseEmbeddedWebView(false)
                     .ExecuteAsync();
                 account = authenticationResult?.Account;
 
-                if (MicrosoftUserSettings.MicrosoftAccount != account.Username)
+                if (MicrosoftSettings.MicrosoftAccount != account.Username)
                 {
-                    MicrosoftUserSettings.MicrosoftAccount = account.Username;
-                    MicrosoftUserSettings.Save();
+                    MicrosoftSettings.MicrosoftAccount = account.Username;
+                    MicrosoftSettings.Save();
                 }
             }
         }

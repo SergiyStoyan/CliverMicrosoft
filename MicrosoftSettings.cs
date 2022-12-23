@@ -11,8 +11,26 @@ using Newtonsoft.Json.Linq;
 
 namespace Cliver
 {
-    public class MicrosoftUserSettings : Cliver.UserSettings
+    public abstract class MicrosoftSettings : Settings
     {
+        /// <summary> 
+        /// Multi-tenant apps can use "common", single-tenant apps must use the tenant ID from the Azure portal
+        /// </summary>
+        [JsonIgnore]
+        public virtual string TenantId { get; } = "common";
+
+        /// <summary>
+        /// Applicaion's client ID obtained from https://portal.azure.com/
+        /// </summary>
+        [JsonIgnore]
+        public abstract string ClientId { get; }
+
+        /// <summary>
+        /// Permission scopes for the application.
+        /// </summary>
+        [JsonIgnore]
+        public abstract string[] Scopes { get; }
+
         /// <summary>
         /// The user's microsoft account chosen latest.
         /// </summary>
