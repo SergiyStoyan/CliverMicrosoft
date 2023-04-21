@@ -107,7 +107,7 @@ namespace Cliver
         /// <summary>
         /// Set this object in the child class if the cache must be stored encrypted.
         /// </summary>
-        virtual protected StringEndec Endec { get; } = null;
+        virtual protected StringEndec Endec { get; set; } = null;
 
         /// <summary>
         /// (!)This object is a cache storage by GraphServiceClient and must not be accessed from outside.
@@ -152,6 +152,21 @@ namespace Cliver
         {
             microsoftCacheBytes = null;
             MicrosoftAccount = null;
+        }
+
+        /// <summary>
+        /// Creates a new instance of the given Settings field with cloned values.
+        /// (!)The new instance shares the same __Info and Endec objects with the original instance.
+        /// </summary>
+        /// <typeparam name="S"></typeparam>
+        /// <param name="jsonSerializerSettings">allows to customize cloning</param>
+        /// <returns></returns>
+        virtual public S Clone<S>(JsonSerializerSettings jsonSerializerSettings = null) where S : MicrosoftSettings, new()
+        {
+            S s = ((S)this).CreateClone(jsonSerializerSettings);
+            s.Endec = Endec;
+            s.Loaded();
+            return s;
         }
     }
 
