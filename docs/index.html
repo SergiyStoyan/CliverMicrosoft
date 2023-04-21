@@ -1,0 +1,138 @@
+<html>
+<head>
+<title>Cliver Microsoft</title>
+ 
+<link rel="stylesheet" type="text/css" href="main.css">
+<link rel="stylesheet" type="text/css" href="menu_generator.css">
+
+<link href="prism.css" rel="stylesheet" />
+
+</head>
+<body>
+<script src="prism.js"></script>
+<div class='header'>
+<div class='mainHeader'>Cliver Microsoft 3.*</div>
+</div>
+
+<div class='content'>
+<h1><a name='CliverMicrosoft'>Overview</a></h1>
+CliverMicrosoft is a wrapper for Microsoft.Graph
+	<br>	
+<p>
+CliverMicrosoft's goals are:		
+<p>
+- managing connection data;		
+<p>
+- providing an easy API for operating objects;
+
+
+
+		
+<p><b>Compatibility</b>
+<br>CliverMicrosoft is compatible with .NET Standard 2.0.
+
+
+
+            <h2><a name='licensing'>Licensing</a></h2>
+			
+			 See in <a href='#source'>the repository</a>.
+			
+	
+            <h2><a name='source'>Source code</a></h2>
+            Open <a href='https://github.com/sergiystoyan/CliverMicrosoft' target='_blank'>repository</a>.
+        <p>
+            Do not download the latest code from a branch because it may be under development. Instead, use the latest (pre-)release code.
+
+
+		
+			
+<h1>Usage</h1>
+<span class='attention'>(!)</span>All the examples require CliverWinRoutines package which is not mandatory for CliverMicrosoft itself.
+
+<h2>MicrosoftSettings</h2>
+			
+An example of Settings class that stores connection information and custom data:
+
+<script type="text/plain" class="language-csharp">using Cliver;
+
+...
+public partial class Settings
+{
+	public static MicrosoftSettings Microsoft;
+
+	public class MicrosoftSettings : MicrosoftUserSettings
+	{
+		// Set this object in the child class if the cache must be stored encrypted.
+		protected override StringEndec Endec => new Win.StringEndec.ProtectedData();
+
+		// Permission scopes for the application.
+		[Newtonsoft.Json.JsonIgnore]
+		public override string[] Scopes => new string[] {//it's better to request all the scopes at once to avoid re-authorization
+			"User.Read"
+			,"People.Read"//needed to know who locked/open a file
+			,"Files.ReadWrite.All"
+			,"Sites.ReadWrite.All"//needed to get Lists API
+		};
+
+		public override string ClientId => "85c34567-1111";// Applicaion's client ID obtained from https://portal.azure.com/
+
+		public OneDrive CreateOneDrive()
+		{
+			OneDrive od = new OneDrive(this);
+			od.OnInteractiveAuthentication = () =>
+			{
+				Message.Inform("In the web page that will open next, please set the microsoft account by which the invoice master file can be updated.");
+			};
+			Log.Inform("Microsoft account: " + od.MicrosoftAccount);
+			return od;
+		}
+	}
+}</script>
+		
+		
+
+
+
+<h2>Operating</h2>
+<br><p>Example of opening connection and downloading a file:
+			
+<script type="text/plain" class="language-csharp">using Cliver;
+
+...
+string fileLink = "https://link";
+OneDrive oneDrive = Settings.Microsoft.CreateOneDrive();
+OneDrive.File file = (OneDrive.File)oneDrive.GetItemByLink(fileLink);
+OneDrive.File.CheckStatus cs = file.CheckOut();
+if (cs == OneDrive.File.CheckStatus.NotSupported || cs == OneDrive.File.CheckStatus.CheckedOut)
+	Log.Inform("File check status: " + cs.ToString() + "\r\nFile: " + fileLink);
+else
+{
+	OneDrive.Folder d = file.GetFolder();
+	throw new Exception2("Could not check-out the master file " + fileLink + "\r\nStatus: " + cs.ToString());
+}
+string tempFile = "c:\\temp\\" + file.DriveItem.Name;
+file.Download(tempFile);</script>
+               
+
+
+
+
+</div>
+
+<div class='footer'>
+        <script src='copyright.js'></script>
+        &nbsp;&nbsp;by&nbsp;<a href="javascript:window.location.href = '&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#115;&#101;&#114;&#103;&#101;&#121;&#46;&#115;&#116;&#111;&#121;&#97;&#110;&#64;&#103;&#109;&#97;&#105;&#108;&#46;&#99;&#111;&#109;'" target="_top">Sergey Stoyan</a>
+</script>
+        
+</div>
+
+<script>
+if(!window.location.href.match(/\#./ig)){
+    window.location.href = window.location.href.replace(/#.*/, '') + '#1';
+    location.reload();
+}
+</script>
+<script src='menu_generator.js' shiftHeaderAndFooterToContentView=''></script>
+
+</body>
+</html>
