@@ -103,6 +103,7 @@ namespace Cliver
             /// <summary>
             /// (!)Not supported on a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
             /// </summary>
+            /// <param name="throwExceptionIfFailed"></param>
             public CheckStatus CheckOut(bool throwExceptionIfFailed = false)
             {
                 CheckStatus cs = GetCheckStatus();
@@ -142,7 +143,14 @@ namespace Cliver
                     DriveItemRequestBuilder.Checkout().Request().PostAsync();//not supported for a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
                 }).Wait();
 
-                cs = GetCheckStatus();
+                if (CheckStatusChangeTimeoutSecs <= 0)
+                    cs = GetCheckStatus();
+                else
+                    SleepRoutines.WaitForCondition(() =>
+                    {
+                        cs = GetCheckStatus();
+                        return cs == CheckStatus.CheckedIn;
+                    }, CheckStatusChangeTimeoutSecs * 1000);
                 if (cs != CheckStatus.CheckedOut && throwExceptionIfFailed)
                     throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + cs.ToString());
 
@@ -176,11 +184,6 @@ namespace Cliver
                 //    //who keeps it open??? 
                 //    //itemActivityStat.
 
-
-
-
-
-
                 //    if (throwExceptionIfFailed)
                 //        throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + cs.ToString());
                 //}
@@ -188,9 +191,16 @@ namespace Cliver
             }
 
             /// <summary>
+            /// Default time to wait for the check status value to change after check-in and check-out. 
+            /// Sometimes it seems to need time to change.
+            /// </summary>
+            public int CheckStatusChangeTimeoutSecs = 0;
+
+            /// <summary>
             /// (!)Not supported on a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
             /// </summary>
             /// <param name="comment"></param>
+            /// <param name="throwExceptionIfFailed"></param>
             public CheckStatus CheckIn(string comment = null, bool throwExceptionIfFailed = false)
             {
                 if (GetCheckStatus() == CheckStatus.NotSupported)
@@ -203,7 +213,15 @@ namespace Cliver
                     DriveItemRequestBuilder.Checkin(/*"published"*/null, comment).Request().PostAsync();//not supported for a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
                 }).Wait();
 
-                CheckStatus cs = GetCheckStatus();
+                CheckStatus cs = CheckStatus.NotSupported;
+                if (CheckStatusChangeTimeoutSecs <= 0)
+                    cs = GetCheckStatus();
+                else
+                    SleepRoutines.WaitForCondition(() =>
+                    {
+                        cs = GetCheckStatus();
+                        return cs == CheckStatus.CheckedIn;
+                    }, CheckStatusChangeTimeoutSecs * 1000);
                 if (cs != CheckStatus.CheckedIn && throwExceptionIfFailed)
                     throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + cs.ToString());
                 return cs;
