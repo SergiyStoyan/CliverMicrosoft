@@ -143,14 +143,11 @@ namespace Cliver
                     DriveItemRequestBuilder.Checkout().Request().PostAsync();//not supported for a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
                 }).Wait();
 
-                if (CheckStatusChangeTimeoutSecs <= 0)
+                SleepRoutines.WaitForCondition(() =>
+                {
                     cs = GetCheckStatus();
-                else
-                    SleepRoutines.WaitForCondition(() =>
-                    {
-                        cs = GetCheckStatus();
-                        return cs == CheckStatus.CheckedIn;
-                    }, CheckStatusChangeTimeoutSecs * 1000);
+                    return cs == CheckStatus.CheckedIn;
+                }, CheckStatusChangeTimeoutSecs * 1000, 1000);
                 if (cs != CheckStatus.CheckedOut && throwExceptionIfFailed)
                     throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + cs.ToString());
 
@@ -214,14 +211,11 @@ namespace Cliver
                 }).Wait();
 
                 CheckStatus cs = CheckStatus.NotSupported;
-                if (CheckStatusChangeTimeoutSecs <= 0)
+                SleepRoutines.WaitForCondition(() =>
+                {
                     cs = GetCheckStatus();
-                else
-                    SleepRoutines.WaitForCondition(() =>
-                    {
-                        cs = GetCheckStatus();
-                        return cs == CheckStatus.CheckedIn;
-                    }, CheckStatusChangeTimeoutSecs * 1000);
+                    return cs == CheckStatus.CheckedIn;
+                }, CheckStatusChangeTimeoutSecs * 1000, 1000);
                 if (cs != CheckStatus.CheckedIn && throwExceptionIfFailed)
                     throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + cs.ToString());
                 return cs;
