@@ -50,7 +50,10 @@ namespace Cliver
             //application.UserTokenCache.SetBeforeWrite((TokenCacheNotificationArgs a) => { });
             //application.UserTokenCache.SetCacheOptions(new CacheOptions { UseSharedCache = false });
 
-            account = Task.Run(() => application.GetAccountsAsync()).Result.FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(MicrosoftSettings.MicrosoftAccount))
+                account = Task.Run(() => application.GetAccountsAsync()).Result.FirstOrDefault();
+            else
+                account = Task.Run(() => application.GetAccountsAsync()).Result.FirstOrDefault(a => a.Username == MicrosoftSettings.MicrosoftAccount);
             return new GraphServiceClient(new DelegateAuthenticationProvider(async (requestMessage) =>
             {
                 await authenticate();

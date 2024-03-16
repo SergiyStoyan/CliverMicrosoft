@@ -114,13 +114,21 @@ namespace Cliver
 
             public File GetFile(string fileName)
             {
-                DriveItem di = Task.Run(() =>
+                DriveItem di = null;
+                var task = Task.Run(() =>
                 {
+                    //return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].ItemWithPath(fileName).Request().GetAsync();
                     return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].ItemWithPath(fileName).Request().GetAsync();
-                }).Result;
-
-                if (di == null)
-                    return null;
+                });
+                try
+                {
+                    di = task.GetAwaiter().GetResult();
+                }
+                catch (Microsoft.Graph.ServiceException e)
+                {
+                    if (e.StatusCode == System.Net.HttpStatusCode.NotFound)
+                        return null;
+                }
                 if (di.File == null)
                     throw new Exception("Item [name='" + fileName + "'] is not a file.");
                 return new File(OneDrive, di);
