@@ -150,6 +150,14 @@ namespace Cliver
                 }).Wait();
             }
 
+            //public void Rename()
+            //{
+            //    Task.Run(() =>
+            //    {
+            //        DriveItemRequestBuilder.Request()();
+            //    }).Wait();
+            //}
+
             /// <summary>
             /// Identifiers useful for SharePoint REST compatibility. Read-only.
             /// </summary>
