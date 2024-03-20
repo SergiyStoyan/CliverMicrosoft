@@ -3,7 +3,7 @@
 //        http://www.cliversoft.com
 //********************************************************************************************
 using System;
-using Microsoft.Graph;
+using Microsoft.Graph.Models;
 using System.Text.RegularExpressions;
 using System.Linq;
 using System.Threading;
@@ -12,6 +12,9 @@ using System.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
+using Microsoft.Graph.Drives.Item.Items;
+using Microsoft.Graph.Drives.Item.Items.Item.CreateLink;
+using Microsoft.Graph;
 
 namespace Cliver
 {
@@ -28,6 +31,25 @@ namespace Cliver
                 throw new Exception("Unknown DriveItem object type: " + driveItem.ToStringByJson());
             }
 
+            static public Item Get(OneDrive oneDrive, Path item)
+            {
+                Item i = null;
+                if (item.BaseObject_LinkOrEncodedLinkOrShareId != null)
+                {
+                    Item bi = oneDrive.GetItemByLink(item.BaseObject_LinkOrEncodedLinkOrShareId);
+                    if (bi == null)
+                        return null;
+                    if (item.RelativePath == null)
+                        return bi;
+                    if (!(bi is Folder))
+                        throw new Exception("Base object link points not to a folder: " + item.BaseObject_LinkOrEncodedLinkOrShareId);
+                    i = bi.Get(item.RelativePath);
+                }
+                else
+                    i = oneDrive.GetItemByPath(item.RelativePath);
+                return i;
+            }
+
             protected Item(OneDrive oneDrive, DriveItem driveItem)
             {
                 OneDrive = oneDrive;
@@ -35,14 +57,6 @@ namespace Cliver
                 ItemId = DriveItem.Id;
                 set();
             }
-
-            //protected Item(OneDrive oneDrive, string driveId, string itemId)
-            //{
-            //    OneDrive = oneDrive;
-            //    DriveId = driveId;
-            //    ItemId = itemId;
-            //    set();
-            //}
 
             void set()
             {
@@ -76,16 +90,16 @@ namespace Cliver
             }
             DriveItem driveItem = null;
 
-            public IDriveItemRequestBuilder DriveItemRequestBuilder
+            public Microsoft.Graph.Drives.Item.Items.Item.DriveItemItemRequestBuilder DriveItemRequestBuilder
             {
                 get
                 {
-                    if (driveItemRequestBuilder == null)
-                        driveItemRequestBuilder = OneDrive.Client.Me.Drives[DriveId].Items[ItemId];
-                    return driveItemRequestBuilder;
+                    if (itemRequestBuilder == null)
+                        itemRequestBuilder = OneDrive.Client.Drives[DriveId].Items[ItemId];
+                    return itemRequestBuilder;
                 }
             }
-            IDriveItemRequestBuilder driveItemRequestBuilder;
+            Microsoft.Graph.Drives.Item.Items.Item.DriveItemItemRequestBuilder itemRequestBuilder;
 
             public enum LinkRoles
             {
@@ -101,53 +115,65 @@ namespace Cliver
             {
                 lock (this)
                 {
-                    Permission p = Task.Run(() =>
+                    var requestBody = new CreateLinkPostRequestBody
                     {
-                        return DriveItemRequestBuilder.CreateLink(linkRole.ToString(), linkScopes.ToString(), expirationDateTime, password, message, retainInheritedPermissions).Request().PostAsync();
-                    }).Result;
+                        Type = linkRole.ToString(),
+                        Password = password,
+                        Scope = linkScopes.ToString(),
+                        RetainInheritedPermissions = retainInheritedPermissions,
+                    };
+                    Permission p = DriveItemRequestBuilder.CreateLink.PostAsync(requestBody).Result;
                     return p.Link;
                 }
             }
 
-            public DriveItem GetDriveItem(string select = null, string expand = null, string selectWithoutPrefix = null, string expandWithoutPrefix = null)
+            public string WebViewLink
             {
-                return Task.Run(() =>
+                get
                 {
-                    //return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Request().Select(select).Expand(expand).GetAsync();//according to reports this way is sometimes buggy
-                    var queryOptions = new List<QueryOption>();
-                    if (select != null)
-                        queryOptions.Add(new QueryOption("$select", select));
-                    if (expand != null)
-                        queryOptions.Add(new QueryOption("$expand", expand));
-                    if (selectWithoutPrefix != null)
-                        queryOptions.Add(new QueryOption("select", selectWithoutPrefix));
-                    if (expandWithoutPrefix != null)
-                        queryOptions.Add(new QueryOption("expand", expandWithoutPrefix));
-                    return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Request(queryOptions).GetAsync();
-                }).Result;
+                    if (viewLink == null)
+                        viewLink = GetLink(LinkRoles.view).ToString();
+                    return viewLink;
+                }
+            }
+            string viewLink;
+
+            public DriveItem GetDriveItem(string[] select = null, string[] expand = null/*, string selectWithoutPrefix = null, string expandWithoutPrefix = null*/)
+            {
+                return DriveItemRequestBuilder.GetAsync(
+                    rc =>
+                    {
+                        rc.QueryParameters.Select = select;//new string[] { "id", "createdDateTime" }
+                        rc.QueryParameters.Expand = expand;
+                    }
+                ).Result;
             }
 
-            public Item GetParent(bool refresh = true)
+            public DriveItem GetDriveItem(string select, string expand = null)
+            {
+                return GetDriveItem(select.Split(','), expand.Split(','));
+            }
+
+            public DriveItem GetRootDriveItem()
+            {
+                return OneDrive.Client.Drives[DriveId].Root.GetAsync().Result;
+            }
+
+            public Folder GetParentFolder(bool refresh = true)
             {
                 if (refresh || DriveItem.ParentReference == null)
                     DriveItem.ParentReference = GetDriveItem("ParentReference").ParentReference;
 
-                DriveItem parentDriveItem = Task.Run(() =>
-                {
-                    return OneDrive.Client.Me.Drives[DriveId].Items[DriveItem.ParentReference.Id].Request().GetAsync();
-                }).Result;
+                DriveItem parentDriveItem = OneDrive.Client.Drives[DriveId].Items[DriveItem.ParentReference.Id].GetAsync().Result;
 
                 if (parentDriveItem == null)
                     return null;
-                return New(OneDrive, parentDriveItem);
+                return (Folder)New(OneDrive, parentDriveItem);
             }
 
             public void Delete()
             {
-                Task.Run(() =>
-                {
-                    DriveItemRequestBuilder.Request().DeleteAsync();
-                }).Wait();
+                DriveItemRequestBuilder.DeleteAsync().Wait();
             }
 
             //public void Rename()
@@ -184,14 +210,11 @@ namespace Cliver
                 }
             }
 
-            public IEnumerable<Item> Search(string pattern)
+            public IEnumerable<Item> Search(string query)
             {
-                IDriveItemSearchCollectionPage driveItems = Task.Run(() =>
-                {
-                    return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Search(pattern).Request().GetAsync();
-                }).Result;
+                var driveItems = DriveItemRequestBuilder.SearchWithQ(query).GetAsSearchWithQGetResponseAsync().Result;
 
-                foreach (DriveItem item in driveItems)
+                foreach (DriveItem item in driveItems.Value)
                     yield return New(OneDrive, item);
             }
 
@@ -206,17 +229,14 @@ namespace Cliver
                 return DriveItem.ParentReference.Path + "/" + DriveItem.Name;
             }
 
-            public FieldValueSet GetFieldValueSet(string select = null, string expand = null)
+            public Item Get(string relativePath)
             {
-                return Task.Run(() =>
-                {
-                    var queryOptions = new List<QueryOption>();
-                    if (select != null)
-                        queryOptions.Add(new QueryOption("$select", select));
-                    if (expand != null)
-                        queryOptions.Add(new QueryOption("$expand", expand));
-                    return OneDrive.Client.Sites[SharepointIds.SiteId].Lists[ListItem.Id].Items[ItemId].Fields.Request(queryOptions).GetAsync();
-                }).Result;
+                string escapedRelativePath = GetEscapedPath(relativePath);//(!)the API always tries to unescape
+
+                var di = DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync().Result;
+                if (di == null)
+                    return null;
+                return New(OneDrive, di);
             }
         }
     }
