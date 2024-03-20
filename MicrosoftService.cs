@@ -4,10 +4,17 @@
 //********************************************************************************************
 using System;
 using Microsoft.Graph;
+using Microsoft.Graph.Models;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Identity.Client;
 using System.Collections.Generic;
+using Azure.Identity;
+using Microsoft.Kiota.Abstractions.Authentication;
+using Microsoft.Kiota.Abstractions;
+using System.Threading;
+using Microsoft.Kiota.Abstractions.Serialization;
+using Microsoft.Kiota.Abstractions.Store;
 
 namespace Cliver
 {
@@ -39,29 +46,37 @@ namespace Cliver
             .WithRedirectUri("http://localhost")//to use the default browser
             .Build();
 
-            //var storageProperties = new Microsoft.Identity.Client.Extensions.Msal.StorageCreationPropertiesBuilder(PathRoutines.GetFileName(TokenFile), PathRoutines.GetFileDir(TokenFile))
-            //    .WithUnprotectedFile()//!!!non-encrypted!!!
-            //    .Build();
-            //var cacheHelper = await Microsoft.Identity.Client.Extensions.Msal.MsalCacheHelper.CreateAsync(storageProperties);
-            //cacheHelper.RegisterCache(application.UserTokenCache);
-
             application.UserTokenCache.SetAfterAccess(MicrosoftSettings.AfterAccessNotification);
             application.UserTokenCache.SetBeforeAccess(MicrosoftSettings.BeforeAccessNotification);
             //application.UserTokenCache.SetBeforeWrite((TokenCacheNotificationArgs a) => { });
             //application.UserTokenCache.SetCacheOptions(new CacheOptions { UseSharedCache = false });
 
             if (string.IsNullOrWhiteSpace(MicrosoftSettings.MicrosoftAccount))
-                account = Task.Run(() => application.GetAccountsAsync()).Result.FirstOrDefault();
+                //account = Task.Run(() => application.GetAccountsAsync()).Result.FirstOrDefault();
+                account = application.GetAccountsAsync().Result.FirstOrDefault();
             else
-                account = Task.Run(() => application.GetAccountsAsync()).Result.FirstOrDefault(a => a.Username == MicrosoftSettings.MicrosoftAccount);
-            return new GraphServiceClient(new DelegateAuthenticationProvider(async (requestMessage) =>
-            {
-                await authenticate();
-                requestMessage.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("bearer", authenticationResult.AccessToken);
-            }));
+                //account = Task.Run(() => application.GetAccountsAsync()).Result.FirstOrDefault(a => a.Username == MicrosoftSettings.MicrosoftAccount);
+                account = application.GetAccountsAsync().Result.FirstOrDefault(a => a.Username == MicrosoftSettings.MicrosoftAccount);
+
+            return new GraphServiceClient(httpClient, new AuthenticationProvider(this));
         }
         IPublicClientApplication application;
         IAccount account = null;
+        System.Net.Http.HttpClient httpClient = GraphClientFactory.Create();
+        public class AuthenticationProvider : IAuthenticationProvider
+        {
+            internal AuthenticationProvider(MicrosoftService microsoftService)
+            {
+                this.microsoftService = microsoftService;
+            }
+            MicrosoftService microsoftService;
+
+            async Task IAuthenticationProvider.AuthenticateRequestAsync(RequestInformation request, Dictionary<string, object> additionalAuthenticationContext, CancellationToken cancellationToken)
+            {
+                await microsoftService.authenticate();
+                request.Headers.Add("Authorization", "bearer " + microsoftService.authenticationResult.AccessToken);
+            }
+        }
         async Task authenticate()
         {
             try
@@ -119,23 +134,27 @@ namespace Cliver
         {
             get
             {
-                return Client.HttpProvider.OverallTimeout;
+                return httpClient.Timeout;
             }
             set
             {
-                Client.HttpProvider.OverallTimeout = value;
+                httpClient.Timeout = value;
             }
         }
 
         public User GetUser(string userId = null)
         {
-            return Task.Run(() =>
-            {
-                if (userId == null)
-                    return Client.Me.Request().GetAsync();
-                else
-                    return Client.Users[userId].Request().GetAsync();
-            }).Result;
+            //return Task.Run(() =>
+            //{
+            //    if (userId == null)
+            //        return Client.Me.GetAsync();
+            //    else
+            //        return Client.Users[userId].GetAsync();
+            //}).Result;
+            if (userId == null)
+                return Client.Me.GetAsync().Result;
+            else
+                return Client.Users[userId].GetAsync().Result;
         }
 
         public User User
