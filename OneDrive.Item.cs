@@ -142,12 +142,15 @@ namespace Cliver
                 return New(OneDrive, parentDriveItem);
             }
 
-            public void Delete()
+            public GraphResponse Delete(bool exceptionOnFail = true)
             {
-                Task.Run(() =>
-                {
-                    DriveItemRequestBuilder.Request().DeleteAsync();
-                }).Wait();
+                GraphResponse r = Task.Run(() =>
+                   {
+                       return DriveItemRequestBuilder.Request().DeleteResponseAsync();
+                   }).Result;
+                if (exceptionOnFail && r.StatusCode != System.Net.HttpStatusCode.NoContent)
+                    throw new Exception("Could not delete item " + driveItem.WebUrl);
+                return r;
             }
 
             //public void Rename()
