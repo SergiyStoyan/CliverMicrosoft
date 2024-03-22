@@ -45,8 +45,8 @@ namespace Cliver
             //var cacheHelper = await Microsoft.Identity.Client.Extensions.Msal.MsalCacheHelper.CreateAsync(storageProperties);
             //cacheHelper.RegisterCache(application.UserTokenCache);
 
-            application.UserTokenCache.SetAfterAccess(MicrosoftSettings.AfterAccessNotification);
-            application.UserTokenCache.SetBeforeAccess(MicrosoftSettings.BeforeAccessNotification);
+            application.UserTokenCache.SetBeforeAccess(MicrosoftSettings.BeforeAccessMicrosoftCache);
+            application.UserTokenCache.SetAfterAccess(MicrosoftSettings.AfterAccessMicrosoftCache);
             //application.UserTokenCache.SetBeforeWrite((TokenCacheNotificationArgs a) => { });
             //application.UserTokenCache.SetCacheOptions(new CacheOptions { UseSharedCache = false });
 
@@ -70,6 +70,7 @@ namespace Cliver
             }
             catch (MsalUiRequiredException e)
             {
+                Log.Inform(e.Message);
                 //if (e.ErrorCode != MsalError.InvalidGrantError && e.ErrorCode != MsalError.UserNullError /* || e.Classification == UiRequiredExceptionClassification.None*/)
                 //    throw;
                 OnInteractiveAuthentication?.Invoke();

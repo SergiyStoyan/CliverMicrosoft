@@ -135,15 +135,17 @@ namespace Cliver
         //    return (string)GetMicrosoftCacheClone()?["Account"]?.First()?.First()?["name"];
         //}
 
-        internal void BeforeAccessNotification(TokenCacheNotificationArgs args)
+        internal void BeforeAccessMicrosoftCache(TokenCacheNotificationArgs args)
         {
             args.TokenCache.DeserializeMsalV3(microsoftCacheBytes, shouldClearExistingCache: true);
         }
 
-        internal void AfterAccessNotification(TokenCacheNotificationArgs args)
+        internal void AfterAccessMicrosoftCache(TokenCacheNotificationArgs args)
         {
             if (!args.HasStateChanged)
                 return;
+            //(!)Requesting scopes that span multiple resources causes refreshing the access token each call: https://github.com/AzureAD/microsoft-authentication-library-for-js/issues/1240#issuecomment-618030246
+            //(!)Frequent refreshing will lead to throttling by the server!
             microsoftCacheBytes = args.TokenCache.SerializeMsalV3();
             Save();
         }
@@ -167,6 +169,11 @@ namespace Cliver
             s.Endec = Endec;
             s.Loaded();
             return s;
+        }
+
+        protected void ImportMicrosoftCacheFrom(MicrosoftSettings microsoftSettings)
+        {
+            microsoftCacheBytes = microsoftSettings.microsoftCacheBytes;
         }
     }
 
