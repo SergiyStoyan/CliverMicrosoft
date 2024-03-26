@@ -21,28 +21,30 @@ namespace Cliver
         {
         }
 
-//        public void test(string itemId)
-//        {
-//            var i = Task.Run(() =>
-//            {/*
-//              .../me/drive/root/children
-//Drive on SharePoint's sites works in the same way, but instead of me you should provide global Id of the site you want to access (global Id is <hostName>,<siteCollectionId>,<siteId>).
-//In conclusion: this endpoint gives us a list of files on a specified site's default drive:
-//.../Sharepoint/sites/<hostName>,<siteCollectionId>,<siteId>/drive/root/children
-//If you want to access files on a specific list, all you need is the id of the list:
-//.../Sharepoint/sites/<hostName>,<siteCollectionId>,<siteId>/lists/<listId>/drive/root/children
-//                */
+        public bool? CheckInIsSupported { get; internal set; } = null;
 
-//                string siteId = Regex.Replace(itemId, @"(?<=.*?sharepoint.com).*$", "");
-//                //Log.Inform(site)
-//                string driveId = Regex.Replace(itemId, @"(\!.*)", "");
-//                IDriveItemRequestBuilder driveItemRequestBuilder = Client.Sites[siteId].Drives[driveId].Items[itemId];
-//                return driveItemRequestBuilder.Request().Select("id, publication").GetAsync();
+        //        public void test(string itemId)
+        //        {
+        //            var i = Task.Run(() =>
+        //            {/*
+        //              .../me/drive/root/children
+        //Drive on SharePoint's sites works in the same way, but instead of me you should provide global Id of the site you want to access (global Id is <hostName>,<siteCollectionId>,<siteId>).
+        //In conclusion: this endpoint gives us a list of files on a specified site's default drive:
+        //.../Sharepoint/sites/<hostName>,<siteCollectionId>,<siteId>/drive/root/children
+        //If you want to access files on a specific list, all you need is the id of the list:
+        //.../Sharepoint/sites/<hostName>,<siteCollectionId>,<siteId>/lists/<listId>/drive/root/children
+        //                */
 
-//                //return getDriveItemRequestBuilder(itemId).Request().Select("id, Shared, CreatedBy, CreatedByUser, name").GetAsync();
-//                //return Client.Shares[itemId].DriveItem.Request().Select("id, name, shared").GetAsync();
-//            }).Result;
-//        }
+        //                string siteId = Regex.Replace(itemId, @"(?<=.*?sharepoint.com).*$", "");
+        //                //Log.Inform(site)
+        //                string driveId = Regex.Replace(itemId, @"(\!.*)", "");
+        //                IDriveItemRequestBuilder driveItemRequestBuilder = Client.Sites[siteId].Drives[driveId].Items[itemId];
+        //                return driveItemRequestBuilder.Request().Select("id, publication").GetAsync();
+
+        //                //return getDriveItemRequestBuilder(itemId).Request().Select("id, Shared, CreatedBy, CreatedByUser, name").GetAsync();
+        //                //return Client.Shares[itemId].DriveItem.Request().Select("id, name, shared").GetAsync();
+        //            }).Result;
+        //        }
 
         public Item GetItemByPath(string path)
         {
@@ -119,7 +121,7 @@ namespace Cliver
 
         /// <summary>
         /// It works for either shared or not shared items.
-        /// Expected to work for links of any form:
+        /// Expected to work for links like:
         /// https://onedrive.live.com/redir?resid=1231244193912!12&authKey=1201919!12921!1
         /// https://onedrive.live.com/?cid=ACBC822AFFB88213&id=ACBC822AFFB88213%21102&parId=root&o=OneUp
         /// https://1drv.ms/x/s!AhOCuP8qgrysblVFtEANPUBlBu4
@@ -137,11 +139,12 @@ namespace Cliver
 
         /// <summary>
         /// Provides argument for Client.Shares[shareIdOrEncodedSharingUrl].
-        /// Expected to work for links of any form:
+        /// Expected to work for links like:
         /// https://onedrive.live.com/redir?resid=1231244193912!12&authKey=1201919!12921!1
         /// https://onedrive.live.com/?cid=ACBC822AFFB88213&id=ACBC822AFFB88213%21102&parId=root&o=OneUp
         /// https://1drv.ms/x/s!AhOCuP8qgrysblVFtEANPUBlBu4
-        /// Encoded link or shareId is retruned unchanged.
+        /// (!)Links generated for OneDrive for Business or SharePoint (https://tenant-my.sharepoint.com) does not work on OneDrive Personal (https://api.onedrive.com).
+        /// Encoded link or shareId is returned unchanged.
         /// </summary>
         /// <param name="linkOrEncodedLinkOrShareId"></param>
         /// <returns></returns>
@@ -150,7 +153,7 @@ namespace Cliver
             if (Regex.IsMatch(linkOrEncodedLinkOrShareId, @"^(u|s)\!"))
                 return linkOrEncodedLinkOrShareId;
             string base64Value = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(linkOrEncodedLinkOrShareId));
-            return "u!" + base64Value.TrimEnd('=').Replace('/', '_').Replace('+', '-');
+            return "u!" + base64Value.TrimEnd('=').Replace('/', '_').Replace('+', '-');//https://learn.microsoft.com/en-us/onedrive/developer/rest-api/api/shares_get?view=odsp-graph-online
         }
 
         public IEnumerable<Item> Search(string pattern)

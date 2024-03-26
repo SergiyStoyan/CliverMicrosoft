@@ -82,34 +82,32 @@ namespace Cliver
                 }
             }
 
-            public List<Item> GetChildren()
+            IEnumerable<DriveItem> getChildren()
             {
-                DriveItem.Children = Task.Run(() =>
+                for (IDriveItemChildrenCollectionRequest r = OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Children.Request(); r != null; r = DriveItem.Children.NextPageRequest)
                 {
-                    return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Children.Request().GetAsync();
-                }).Result;
-
-                return DriveItem.Children?.Select(a => New(OneDrive, a)).ToList();
+                    DriveItem.Children = Task.Run(() =>
+                    {
+                        return r.GetAsync();
+                    }).Result;
+                    foreach (DriveItem child in DriveItem.Children)
+                        yield return child;
+                }
             }
 
-            public List<File> GetFiles()
+            public IEnumerable<Item> GetChildren()
             {
-                DriveItem.Children = Task.Run(() =>
-                {
-                    return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Children.Request().GetAsync();
-                }).Result;
-
-                return DriveItem.Children.Where(a => a.File != null).Select(a => new File(OneDrive, a)).ToList();
+                return getChildren()?.Select(a => New(OneDrive, a));
             }
 
-            public List<Folder> GetFolders()
+            public IEnumerable<File> GetFiles()
             {
-                DriveItem.Children = Task.Run(() =>
-                {
-                    return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Children.Request().GetAsync();
-                }).Result;
+                return getChildren().Where(a => a.File != null).Select(a => new File(OneDrive, a));
+            }
 
-                return DriveItem.Children.Where(a => a.Folder != null).Select(a => new Folder(OneDrive, a)).ToList();
+            public IEnumerable<Folder> GetFolders()
+            {
+                return getChildren().Where(a => a.Folder != null).Select(a => new Folder(OneDrive, a));
             }
 
             public File GetFile(string fileName)

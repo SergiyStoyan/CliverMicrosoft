@@ -77,7 +77,7 @@ namespace Cliver
             }
             public CheckStatus GetCheckStatus()
             {
-                if (checkInIsSupported == false)
+                if (OneDrive.CheckInIsSupported == false)
                     return CheckStatus.NotSupported;
 
                 var i = Task.Run(() =>
@@ -85,12 +85,12 @@ namespace Cliver
                     return DriveItemRequestBuilder.Request().Select("id, publication").GetAsync();
                 }).Result;
                 //Log.Debug0(i.ToStringByJson());
-                if (i.Publication == null)//if NULL then checkout is not supported
+                if (i.Publication == null/* checkout is not supported but as of 2024 it is not true anymore */ || string.IsNullOrWhiteSpace(i.Publication.VersionId))
                 {
-                    checkInIsSupported = false;
+                    OneDrive.CheckInIsSupported = false;
                     return CheckStatus.NotSupported;
                 }
-                checkInIsSupported = true;
+                OneDrive.CheckInIsSupported = true;
                 string s = i.Publication.Level.ToLower();
                 if (s == "published")
                     return CheckStatus.CheckedIn;
@@ -98,7 +98,6 @@ namespace Cliver
                     return CheckStatus.CheckedOut;
                 throw new Exception("Unknown Publication.Level: " + s);
             }
-            bool? checkInIsSupported = null;
 
             /// <summary>
             /// (!)Not supported on a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
