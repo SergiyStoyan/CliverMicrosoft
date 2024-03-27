@@ -145,7 +145,7 @@ namespace Cliver
                 SleepRoutines.WaitForCondition(() =>
                 {
                     cs = GetCheckStatus();
-                    return cs == CheckStatus.CheckedIn;
+                    return cs == CheckStatus.CheckedOut;
                 }, CheckStatusChangeTimeoutSecs * 1000, 1000);
                 if (cs != CheckStatus.CheckedOut && throwExceptionIfFailed)
                     throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + cs.ToString());
@@ -191,7 +191,7 @@ namespace Cliver
 
             /// <summary>
             /// (!)Not supported on a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
-            /// (!)It will not check-in if the file already has status checked-in, which makes a difference if setting a comment.
+            /// (!)It will not check-in if the file already is checked-in, which only makes difference if setting a comment.
             /// </summary>
             /// <param name="comment"></param>
             /// <param name="throwExceptionIfFailed"></param>
