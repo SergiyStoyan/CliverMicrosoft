@@ -191,13 +191,15 @@ namespace Cliver
 
             /// <summary>
             /// (!)Not supported on a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
+            /// (!)It will not check-in if the file already has status checked-in, which makes a difference if setting a comment.
             /// </summary>
             /// <param name="comment"></param>
             /// <param name="throwExceptionIfFailed"></param>
             public CheckStatus CheckIn(string comment = null, bool throwExceptionIfFailed = false)
             {
-                if (GetCheckStatus() == CheckStatus.NotSupported)
-                    return CheckStatus.NotSupported;
+                CheckStatus cs = GetCheckStatus();
+                if (cs == CheckStatus.NotSupported || cs == CheckStatus.CheckedIn/*(!)otherwise it will create a new version even if it is checked-in*/)
+                    return cs;
 
                 if (comment == null)
                     comment = "by " + Log.ProgramName;
@@ -206,7 +208,7 @@ namespace Cliver
                     DriveItemRequestBuilder.Checkin(/*"published"*/null, comment).Request().PostAsync();//not supported for a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
                 }).Wait();
 
-                CheckStatus cs = CheckStatus.NotSupported;
+                cs = CheckStatus.NotSupported;
                 SleepRoutines.WaitForCondition(() =>
                 {
                     cs = GetCheckStatus();
