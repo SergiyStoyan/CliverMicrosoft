@@ -108,7 +108,7 @@ namespace Cliver
                 CheckStatus cs = GetCheckStatus();
                 if (cs == CheckStatus.NotSupported)
                     return cs;
-                if (cs == CheckStatus.CheckedOut && CheckIn() != CheckStatus.CheckedIn)
+                if (cs == CheckStatus.CheckedOut && CheckIn() != CheckStatus.CheckedIn)//!!!CheckIn() will create a new version. Find another way!
                     if (throwExceptionIfFailed)
                         throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + CheckStatus.CheckedOutByNotMe.ToString());
                     else
@@ -146,7 +146,7 @@ namespace Cliver
                 {
                     cs = GetCheckStatus();
                     return cs == CheckStatus.CheckedOut;
-                }, CheckStatusChangeTimeoutSecs * 1000, 1000);
+                }, CheckStatusChangeTimeoutSecs * 1000, 900);
                 if (cs != CheckStatus.CheckedOut && throwExceptionIfFailed)
                     throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + cs.ToString());
 
@@ -187,7 +187,7 @@ namespace Cliver
             /// Default time to wait for the check status value to change after check-in and check-out. 
             /// Sometimes it seems to need time to change.
             /// </summary>
-            public int CheckStatusChangeTimeoutSecs = 0;
+            public int CheckStatusChangeTimeoutSecs = 1;
 
             /// <summary>
             /// (!)Not supported on a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
