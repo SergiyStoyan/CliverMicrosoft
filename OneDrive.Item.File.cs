@@ -146,7 +146,7 @@ namespace Cliver
                 {
                     cs = GetCheckStatus();
                     return cs == CheckStatus.CheckedOut;
-                }, CheckStatusChangeTimeoutSecs * 1000, 900);
+                }, CheckStatusChangeTimeoutSecs * 1000, 1000, true, 2);
                 if (cs != CheckStatus.CheckedOut && throwExceptionIfFailed)
                     throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + cs.ToString());
 
@@ -213,7 +213,7 @@ namespace Cliver
                 {
                     cs = GetCheckStatus();
                     return cs == CheckStatus.CheckedIn;
-                }, CheckStatusChangeTimeoutSecs * 1000, 1000);
+                }, CheckStatusChangeTimeoutSecs * 1000, 1000, true, 2);
                 if (cs != CheckStatus.CheckedIn && throwExceptionIfFailed)
                     throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + cs.ToString());
                 return cs;
