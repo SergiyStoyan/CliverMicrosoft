@@ -72,6 +72,14 @@ namespace Cliver
             {
                 if (remoteFileRelativePath == null)
                     remoteFileRelativePath = PathRoutines.GetFileName(localFile);
+                if (remoteFileRelativePath.Contains('%'))//(!)The server always tries to url-decode
+                {
+                    string[] ps = remoteFileRelativePath.Split('\\', '/');
+                    for (int i = 0; i < ps.Length; i++)
+                        ps[i] = Uri.EscapeDataString(ps[i]);
+                    remoteFileRelativePath = string.Join("\\", ps);
+                    //remoteFileRelativePath = Uri.EscapeDataString(remoteFileRelativePath);
+                }
                 using (Stream s = System.IO.File.OpenRead(localFile))
                 {
                     DriveItem driveItem = Task.Run(() =>
@@ -128,26 +136,36 @@ namespace Cliver
                         return null;
                 }
                 if (di.File == null)
-                    throw new Exception("Item [name='" + fileName + "'] is not a file.");
+                    throw new Exception("Item [name='" + fileName + "'] exists and it is not a file.");
                 return new File(OneDrive, di);
             }
 
             public Folder GetFolder(string folderName, bool createIfNotExists)
             {
-                DriveItem di = Task.Run(() =>
+                if (folderName.Contains('%'))//(!)The server always tries to url-decode
+                    folderName = Uri.EscapeDataString(folderName);
+                DriveItem di = null;
+                var task = Task.Run(() =>
                 {
                     return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].ItemWithPath(folderName).Request().GetAsync();
-                }).Result;
-
+                });
+                try
+                {
+                    di = task.GetAwaiter().GetResult();
+                }
+                catch (Microsoft.Graph.ServiceException e)
+                {
+                    if (e.StatusCode != System.Net.HttpStatusCode.NotFound)
+                        throw;
+                }
                 if (di != null)
                 {
                     if (di.Folder == null)
-                        throw new Exception("Item [name='" + folderName + "'] is not a folder.");
+                        throw new Exception("Item [name='" + folderName + "'] exists and it is not a folder.");
                     return new Folder(OneDrive, di);
                 }
                 if (!createIfNotExists)
                     return null;
-
                 di = new DriveItem
                 {
                     Name = folderName,
