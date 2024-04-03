@@ -95,8 +95,37 @@ namespace Cliver
                 if (s == "published")
                     return CheckStatus.CheckedIn;
                 if (s == "checkout")
+                {
+                    //var user = getCheckedOutUser();
+                    //if (user == "Me")
                     return CheckStatus.CheckedOut;
+                    //return CheckStatus.CheckedOutByNotMe;
+                }
                 throw new Exception("Unknown Publication.Level: " + s);
+            }
+
+            object getCheckedOutUser()//!!!FIX ME
+            {
+                if (SharepointIds == null)
+                    throw new Exception("SharepointIds are NULL while the DriveItem status is CheckedOut.");
+                //check if the item is checkedout by someone else
+                var ls = Task.Run(() =>
+                {
+                    return OneDrive.Client.Sites[SharepointIds.SiteId].Request().GetAsync();//error: Unable to find target address
+                    //return OneDrive.Client.Sites[SharepointIds.SiteId].Drives[DriveId].Root.Children.Request().Expand("ListItem").GetAsync();//error: Invalid API or resource
+                }).Result;
+                FieldValueSet fieldValueSet = Task.Run(() =>
+                {
+                    return OneDrive.Client.Sites[SharepointIds.SiteId].Lists[ListItem.Id].Items[ItemId].Fields.Request().Expand("CheckoutUser").GetAsync();
+                    //return OneDrive.Client.Sites[SharepointIds.SiteId].Items[ItemId].Fields.Request().Expand("CheckoutUser").GetAsync();
+                }).Result;
+
+                Log.Debug0(fieldValueSet.AdditionalData.ToStringByJson());
+
+                object checkoutUser = fieldValueSet.AdditionalData["CheckoutUser"];
+                if (checkoutUser == null)
+                    throw new Exception("Could not get checkoutUser for the DriveItem.");
+                return checkoutUser;
             }
 
             /// <summary>
@@ -113,29 +142,6 @@ namespace Cliver
                         throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + CheckStatus.CheckedOutByNotMe.ToString());
                     else
                         return CheckStatus.CheckedOutByNotMe;
-                //if (cs == CheckStatus.CheckedOut)//must work on sharepoint
-                //{//get who the item is checked out by:
-                //    if (SharepointIds == null)
-                //        throw new Exception("SharepointIds are NULL while the DriveItem status is CheckedOut.");
-                //    //check if the item is checkedout by someone else
-                //    FieldValueSet fieldValueSet = Task.Run(() =>
-                //    {
-                //        return OneDrive.Client.Sites[SharepointIds.SiteId].Lists[ListItem.Id].Items[ItemId].Fields.Request().Expand("CheckoutUser").GetAsync();
-                //    }).Result;
-                //    Log.Debug0(fieldValueSet.AdditionalData.ToStringByJson());
-                //    object checkoutUser = fieldValueSet.AdditionalData["CheckoutUser"];
-                //    if (checkoutUser == null)
-                //        throw new Exception("Could not get checkoutUser for the DriveItem.");
-                //    //who checked out???
-                //    //if(checkoutUser is Me)
-                //    //    return CheckStatus.CheckedOut;
-                //    if (throwExceptionIfFailed)
-                //        throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl
-                //            + "\r\nThe file is checked out by user: " + checkoutUser.ToString()
-                //            );
-                //    else
-                //        return CheckStatus.CheckedOutByNotMe;
-                //}
 
                 Task.Run(() =>
                 {
