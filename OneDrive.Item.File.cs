@@ -104,7 +104,7 @@ namespace Cliver
                 throw new Exception("Unknown Publication.Level: " + s);
             }
 
-            object getCheckedOutUser()//!!!FIX ME
+            public object GetCheckedOutUser()//!!!FIX ME
             {
                 if (SharepointIds == null)
                     throw new Exception("SharepointIds are NULL while the DriveItem status is CheckedOut.");

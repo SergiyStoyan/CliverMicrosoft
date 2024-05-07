@@ -8,7 +8,7 @@
 	  <Copyright>Sergiy Stoyan</Copyright>
 	  <Authors>Sergiy Stoyan</Authors>
 	  <Company>CliverSoft</Company>
-	  <Version>3.6.8</Version>
+	  <Version>3.6.10</Version>
 	  <PackageProjectUrl>https://github.com/sergiystoyan/CliverMicrosoft</PackageProjectUrl>
 	  <Description>Routines based on Microsoft.Graph</Description>
 	  <PackageTags>Microsoft.Graph</PackageTags>
@@ -28,7 +28,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <PackageReference Include="CliverRoutines" Version="6.47.0" />
+	  <PackageReference Include="CliverRoutines" Version="6.49.1" />
 	  <PackageReference Include="Microsoft.Graph" Version="4.54.0" />
 	  <PackageReference Include="Microsoft.Identity.Client" Version="4.59.0" />
 	</ItemGroup>
