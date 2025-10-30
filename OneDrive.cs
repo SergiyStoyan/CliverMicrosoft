@@ -48,11 +48,29 @@ namespace Cliver
 
         public Item GetItemByPath(string path)
         {
+            string escapedPath = GetPathEscaped(path);
             DriveItem driveItem = Task.Run(() =>
             {
-                return Client.Me.Drive.Root.ItemWithPath(path).Request().GetAsync();
+                return Client.Me.Drive.Root.ItemWithPath(escapedPath).Request().GetAsync();
             }).Result;
             return Item.New(this, driveItem);
+        }
+
+        public static string GetPathEscaped(string path)
+        {
+            //return Regex.Replace(path, @"\%", @"%25");
+
+            if (!path.Contains('%'))//(!)The server always tries to url-decode
+                return path;
+            string[] ps = path.Split('\\', '/');
+            for (int i = 0; i < ps.Length; i++)
+                ps[i] = Uri.EscapeDataString(ps[i]);
+            return string.Join("\\", ps);
+        }
+
+        public static bool IsLinkOneDrive(string link)
+        {
+            return Regex.IsMatch(link, @"https\://(drive.google.com/drive/|1drv.ms/)", RegexOptions.IgnoreCase);
         }
 
         /// <summary>

@@ -72,19 +72,12 @@ namespace Cliver
             {
                 if (remoteFileRelativePath == null)
                     remoteFileRelativePath = PathRoutines.GetFileName(localFile);
-                if (remoteFileRelativePath.Contains('%'))//(!)The server always tries to url-decode
-                {
-                    string[] ps = remoteFileRelativePath.Split('\\', '/');
-                    for (int i = 0; i < ps.Length; i++)
-                        ps[i] = Uri.EscapeDataString(ps[i]);
-                    remoteFileRelativePath = string.Join("\\", ps);
-                    //remoteFileRelativePath = Uri.EscapeDataString(remoteFileRelativePath);
-                }
+                string escapedPath = GetPathEscaped(remoteFileRelativePath);
                 using (Stream s = System.IO.File.OpenRead(localFile))
                 {
                     DriveItem driveItem = Task.Run(() =>
                     {
-                        return DriveItemRequestBuilder.ItemWithPath(remoteFileRelativePath).Content.Request().PutAsync<DriveItem>(s);
+                        return DriveItemRequestBuilder.ItemWithPath(escapedPath).Content.Request().PutAsync<DriveItem>(s);
                     }).Result;
                     return new File(OneDrive, driveItem);
                 }
@@ -120,11 +113,12 @@ namespace Cliver
 
             public File GetFile(string fileName)
             {
+                string escapedPath = GetPathEscaped(fileName);
                 DriveItem di = null;
                 var task = Task.Run(() =>
                 {
-                    //return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].ItemWithPath(fileName).Request().GetAsync();
-                    return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].ItemWithPath(fileName).Request().GetAsync();
+                    //return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].ItemWithPath(escapedPath).Request().GetAsync();
+                    return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].ItemWithPath(escapedPath).Request().GetAsync();
                 });
                 try
                 {
@@ -142,12 +136,11 @@ namespace Cliver
 
             public Folder GetFolder(string folderName, bool createIfNotExists)
             {
-                if (folderName.Contains('%'))//(!)The server always tries to url-decode
-                    folderName = Uri.EscapeDataString(folderName);
+                string escapedPath = GetPathEscaped(folderName);
                 DriveItem di = null;
                 var task = Task.Run(() =>
                 {
-                    return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].ItemWithPath(folderName).Request().GetAsync();
+                    return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].ItemWithPath(escapedPath).Request().GetAsync();
                 });
                 try
                 {
@@ -168,7 +161,7 @@ namespace Cliver
                     return null;
                 di = new DriveItem
                 {
-                    Name = folderName,
+                    Name = escapedPath,
                     Folder = new Microsoft.Graph.Folder
                     {
                     },
