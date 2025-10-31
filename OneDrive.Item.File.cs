@@ -19,45 +19,75 @@ namespace Cliver
     {
         public class File : Item
         {
-            public static File New(OneDrive oneDrive, string remoteFile, bool createIfNotExists)
+            //public static File Get(OneDrive oneDrive, string remoteFile, bool createIfNotExists)
+            //{
+            //    Item item = oneDrive.GetItemByPath(remoteFile);
+            //    if (item != null)
+            //    {
+            //        if (item is File)
+            //            return (File)item;
+            //        throw new Exception("Remote path points to not a file: " + remoteFile);
+            //    }
+            //    if (!createIfNotExists)
+            //        return null;
+
+            //    Match m = Regex.Match(remoteFile, @"(?'ParentFolder'.*)[\\\/]+(?'Name'.*)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            //    if (!m.Success)
+            //        throw new Exception("Remote file path could not be separated: " + remoteFile);
+
+            //    Folder parentFolder = Folder.New(oneDrive, m.Groups["ParentFolder"].Value, true);
+            //    DriveItem di = new DriveItem
+            //    {
+            //        Name = m.Groups["Name"].Value,
+            //        File = new Microsoft.Graph.File
+            //        {
+            //        },
+            //        AdditionalData = new Dictionary<string, object>()
+            //        {
+            //            {"@microsoft.graph.conflictBehavior", "rename"}
+            //        }
+            //    };
+            //    DriveItem driveItem = Task.Run(() =>
+            //    {
+            //        return parentFolder.DriveItemRequestBuilder.Children.Request().AddAsync(di);
+            //    }).Result;
+            //    return new File(oneDrive, driveItem);
+            //}
+
+            public static File Get(OneDrive oneDrive, Path file)
             {
-                Item item = oneDrive.GetItemByPath(remoteFile);
-                if (item != null)
+                Item item = null;
+                if (file.BaseObject_LinkOrEncodedLinkOrShareId != null)
                 {
-                    if (item is File)
-                        return (File)item;
-                    throw new Exception("Remote path points to not a file: " + remoteFile);
-                }
-                if (!createIfNotExists)
-                    return null;
-
-                Match m = Regex.Match(remoteFile, @"(?'ParentFolder'.*)[\\\/]+(?'Name'.*)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-                if (!m.Success)
-                    throw new Exception("Remote file path could not be separated: " + remoteFile);
-
-                Folder parentFolder = Folder.New(oneDrive, m.Groups["ParentFolder"].Value, true);
-                DriveItem di = new DriveItem
-                {
-                    Name = m.Groups["Name"].Value,
-                    File = new Microsoft.Graph.File
+                    Item bi = oneDrive.GetItemByLink(file.BaseObject_LinkOrEncodedLinkOrShareId);
+                    if (bi == null)
+                        return null;
+                    if (file.RelativePath == null)
                     {
-                    },
-                    AdditionalData = new Dictionary<string, object>()
-                    {
-                        {"@microsoft.graph.conflictBehavior", "rename"}
+                        if (bi is File)
+                            return (File)bi;
+                        throw new Exception("Path points to not a file: " + file);
                     }
-                };
-                DriveItem driveItem = Task.Run(() =>
+                    if (!(bi is Folder))
+                        throw new Exception("Base object link points to not a folder: " + file.BaseObject_LinkOrEncodedLinkOrShareId);
+
+                    item = bi.Get(file.RelativePath);
+                }
+                else
                 {
-                    return parentFolder.DriveItemRequestBuilder.Children.Request().AddAsync(di);
-                }).Result;
-                return new File(oneDrive, driveItem);
+                    item = oneDrive.GetItemByPath(file.RelativePath);
+                }
+                if (item == null)
+                    return null;
+                if (item is File)
+                    return (File)item;
+                throw new Exception("Path points to not a file: " + file);
             }
 
             internal File(OneDrive oneDrive, DriveItem driveItem) : base(oneDrive, driveItem)
             {
             }
-
+            
             //public bool IsCheckInSupported
             //{
             //    get
@@ -265,7 +295,7 @@ namespace Cliver
 
             public Folder GetFolder()
             {
-                return (Folder)GetParent();
+                return GetParentFolder();
             }
         }
     }

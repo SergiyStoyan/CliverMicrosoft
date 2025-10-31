@@ -48,24 +48,12 @@ namespace Cliver
 
         public Item GetItemByPath(string path)
         {
-            string escapedPath = GetPathEscaped(path);
+            string escapedPath = GetEscapedPath(path);
             DriveItem driveItem = Task.Run(() =>
             {
                 return Client.Me.Drive.Root.ItemWithPath(escapedPath).Request().GetAsync();
             }).Result;
             return Item.New(this, driveItem);
-        }
-
-        public static string GetPathEscaped(string path)
-        {
-            //return Regex.Replace(path, @"\%", @"%25");
-
-            if (!path.Contains('%'))//(!)The server always tries to url-decode
-                return path;
-            string[] ps = path.Split('\\', '/');
-            for (int i = 0; i < ps.Length; i++)
-                ps[i] = Uri.EscapeDataString(ps[i]);
-            return string.Join("\\", ps);
         }
 
         public static bool IsLinkOneDrive(string link)
@@ -74,7 +62,7 @@ namespace Cliver
         }
 
         /// <summary>
-        /// !!!when 'Can view' a user still can hange the file! Probabaly it is due to 'anybody with this link can edit the file'
+        /// !!!when 'Can view' a user still can change the file! Probabaly it is due to 'anybody with this link can edit the file'
         /// 
         /// Locks by removing shared premissions.
         /// (!)The owner remains to be able to edit.
@@ -161,7 +149,7 @@ namespace Cliver
         /// https://onedrive.live.com/redir?resid=1231244193912!12&authKey=1201919!12921!1
         /// https://onedrive.live.com/?cid=ACBC822AFFB88213&id=ACBC822AFFB88213%21102&parId=root&o=OneUp
         /// https://1drv.ms/x/s!AhOCuP8qgrysblVFtEANPUBlBu4
-        /// (!)Links generated for OneDrive for Business or SharePoint (https://tenant-my.sharepoint.com) does not work on OneDrive Personal (https://api.onedrive.com).
+        /// (!)Links generated for OneDrive for Business or SharePoint (https://tenant-my.sharepoint.com) do not work on OneDrive Personal (https://api.onedrive.com).
         /// Encoded link or shareId is returned unchanged.
         /// </summary>
         /// <param name="linkOrEncodedLinkOrShareId"></param>
@@ -185,24 +173,81 @@ namespace Cliver
                 yield return Item.New(this, item);
         }
 
-        public Folder GetFolder(string remoteFolder, bool createIfNotExists)
+        public Folder GetFolder(Path folder, bool createIfNotExists)
         {
-            return Folder.New(this, remoteFolder, createIfNotExists);
+            return Folder.Get(this, folder, createIfNotExists);
         }
 
-        public File GetFile(string remoteFile, bool createIfNotExists)
+        public Folder GetFolder(string linkOrEncodedLinkOrShareId, bool createIfNotExists)
         {
-            return File.New(this, remoteFile, createIfNotExists);
+            return GetFolder(new Path(linkOrEncodedLinkOrShareId), createIfNotExists);
         }
 
-        public Folder GetFolder(string linkOrEncodedLinkOrShareId)
+        public File GetFile(Path file)
         {
-            return (Folder)GetItemByLink(linkOrEncodedLinkOrShareId);
+            return File.Get(this, file);
         }
 
         public File GetFile(string linkOrEncodedLinkOrShareId)
         {
-            return (File)GetItemByLink(linkOrEncodedLinkOrShareId);
+            return GetFile(new Path(linkOrEncodedLinkOrShareId));
+        }
+
+        //public Folder GetFolder(string linkOrEncodedLinkOrShareId)
+        //{
+        //    return (Folder)GetItemByLink(linkOrEncodedLinkOrShareId);
+        //}
+
+        //public File GetFile(string linkOrEncodedLinkOrShareId)
+        //{
+        //    return (File)GetItemByLink(linkOrEncodedLinkOrShareId);
+        //}
+
+        public File UploadFile(string localFile, Path remoteFile)
+        {
+            Folder f = GetParentFolder(remoteFile, true, out string folderOrFileName);
+            return f.UploadFile(localFile, folderOrFileName);
+        }
+
+        public File UploadFile(string localFile, string linkOrEncodedLinkOrShareId)
+        {
+            return UploadFile(localFile, new Path(linkOrEncodedLinkOrShareId));
+        }
+
+        public Folder GetParentFolder(Path itemPath, bool createIfNotExists, out string folderOrFileName)
+        {
+            string relativeParentFolder;
+            if (itemPath.BaseObject_LinkOrEncodedLinkOrShareId == null)
+            {
+                SplitRelativePath(itemPath.RelativePath, out relativeParentFolder, out folderOrFileName);
+                if (relativeParentFolder != null)
+                    return GetFolder(new Path(null, relativeParentFolder), createIfNotExists);
+                return null;//parent of Root
+            }
+            Item i = GetItemByLink(itemPath.BaseObject_LinkOrEncodedLinkOrShareId);
+            if (i == null)
+            {
+                folderOrFileName = null;
+                return null;
+            }
+            if (!(i is Folder))
+                throw new Exception("Link points not to a folder: " + itemPath.BaseObject_LinkOrEncodedLinkOrShareId);
+            SplitRelativePath(itemPath.RelativePath, out relativeParentFolder, out folderOrFileName);
+            if (relativeParentFolder != null)
+                return ((Folder)i).GetFolder(relativeParentFolder, createIfNotExists);
+            return (Folder)i;
+        }
+
+        public File DownloadFile(Path remoteFile, string localFile)
+        {
+            File f = File.Get(this, remoteFile);
+            f.Download(localFile);
+            return f;
+        }
+
+        public File DownloadFile(string linkOrEncodedLinkOrShareId, string localFile)
+        {
+            return DownloadFile(new Path(linkOrEncodedLinkOrShareId), localFile);
         }
     }
 }

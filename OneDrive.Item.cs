@@ -109,6 +109,18 @@ namespace Cliver
                 }
             }
 
+            public string WebViewLink
+            {
+                get
+                {
+                    if (viewLink == null)
+                        viewLink = GetLink(LinkRoles.view).ToString();
+                    return viewLink;
+                }
+            }
+            string viewLink;
+            //Dictionary<LinkRoles, string> LinkRoles2link=new Dictionary<LinkRoles, string>();
+
             public DriveItem GetDriveItem(string select = null, string expand = null, string selectWithoutPrefix = null, string expandWithoutPrefix = null)
             {
                 return Task.Run(() =>
@@ -127,7 +139,7 @@ namespace Cliver
                 }).Result;
             }
 
-            public Item GetParent(bool refresh = true)
+            public Folder GetParentFolder(bool refresh = true)
             {
                 if (refresh || DriveItem.ParentReference == null)
                     DriveItem.ParentReference = GetDriveItem("ParentReference").ParentReference;
@@ -139,7 +151,7 @@ namespace Cliver
 
                 if (parentDriveItem == null)
                     return null;
-                return New(OneDrive, parentDriveItem);
+                return (Folder)New(OneDrive, parentDriveItem);
             }
 
             public GraphResponse Delete(bool exceptionOnFail = true)
@@ -220,6 +232,17 @@ namespace Cliver
                         queryOptions.Add(new QueryOption("$expand", expand));
                     return OneDrive.Client.Sites[SharepointIds.SiteId].Lists[ListItem.Id].Items[ItemId].Fields.Request(queryOptions).GetAsync();
                 }).Result;
+            }
+
+            public Item Get(string relativePath)
+            {
+                var di = Task.Run(() =>
+                {
+                    return DriveItemRequestBuilder.ItemWithPath(relativePath).Request().GetAsync();
+                }).Result;
+                if (di == null)
+                    return null;
+                return New(OneDrive, di);
             }
         }
     }
