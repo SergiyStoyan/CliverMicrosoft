@@ -125,6 +125,16 @@ namespace Cliver
                     if (expandWithoutPrefix != null)
                         queryOptions.Add(new QueryOption("expand", expandWithoutPrefix));
                     return OneDrive.Client.Me.Drives[DriveId].Items[ItemId].Request(queryOptions).GetAsync();
+
+                    return OneDrive.Client.Drives[DriveId].Items[ItemId].SearchWithQ(query).GetAsSearchWithQGetResponseAsync();
+                }).Result;
+            }
+
+            public DriveItem GetRootDriveItem()
+            {
+                return Task.Run(() =>
+                {
+                    return OneDrive.Client.Drives[DriveId].Root.GetAsync();
                 }).Result;
             }
 
@@ -185,14 +195,14 @@ namespace Cliver
                 }
             }
 
-            public IEnumerable<Item> Search(string pattern)
+            public IEnumerable<Item> Search(string query)
             {
-                IDriveItemSearchCollectionPage driveItems = Task.Run(() =>
+                var driveItems = Task.Run(() =>
                 {
-                    return OneDrive.Client.Drives[DriveId].Items[ItemId].Search(pattern).Request().GetAsync();
+                    return OneDrive.Client.Drives[DriveId].Items[ItemId].SearchWithQ(query).GetAsSearchWithQGetResponseAsync();
                 }).Result;
 
-                foreach (DriveItem item in driveItems)
+                foreach (DriveItem item in driveItems.Value)
                     yield return New(OneDrive, item);
             }
 
