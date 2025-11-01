@@ -20,7 +20,7 @@ namespace Cliver
     public partial class OneDrive
     {
         public class Folder : Item
-        {            
+        {
             public static Folder Get(OneDrive oneDrive, Path folder, bool createIfNotExists)
             {
                 if (string.IsNullOrWhiteSpace(folder.Key))
@@ -55,10 +55,11 @@ namespace Cliver
                 if (string.IsNullOrWhiteSpace(relativePath))
                     throw new Exception("Path is empty.");
 
-                DriveItem di = Task.Run(() =>
-                {
-                    return DriveItemRequestBuilder.ItemWithPath(relativePath).GetAsync();
-                }).Result;
+                //DriveItem di = Task.Run(() =>
+                //{
+                //    return DriveItemRequestBuilder.ItemWithPath(relativePath).GetAsync();
+                //}).Result;
+                DriveItem di = DriveItemRequestBuilder.ItemWithPath(relativePath).GetAsync().Result;
 
                 if (di != null)
                 {
@@ -84,10 +85,11 @@ namespace Cliver
                                 {"@microsoft.graph.conflictBehavior", "rename"}
                             }
                     };
-                    DriveItem cdi = Task.Run(() =>
-                    {
-                        return DriveItemRequestBuilder.Children.PostAsync(di);
-                    }).Result;
+                    //DriveItem cdi = Task.Run(() =>
+                    //{
+                    //    return DriveItemRequestBuilder.Children.PostAsync(di);
+                    //}).Result;
+                    DriveItem cdi = DriveItemRequestBuilder.Children.PostAsync(di).Result;
                     return new Folder(OneDrive, cdi);
                 }
                 return GetFolder(m.Groups[1].Value, createIfNotExists).GetFolder(m.Groups[2].Value, createIfNotExists);
@@ -113,43 +115,59 @@ namespace Cliver
                     remoteFileRelativePath = PathRoutines.GetFileName(localFile);
                 using (Stream s = System.IO.File.OpenRead(localFile))
                 {
-                    DriveItem driveItem = Task.Run(() =>
-                    {
-                        return DriveItemRequestBuilder.ItemWithPath(remoteFileRelativePath).Content.PutAsync(s);
-                    }).Result;
+                    //DriveItem driveItem = Task.Run(() =>
+                    //{
+                    //    return DriveItemRequestBuilder.ItemWithPath(remoteFileRelativePath).Content.PutAsync(s);
+                    //}).Result;
+                    DriveItem driveItem = DriveItemRequestBuilder.ItemWithPath(remoteFileRelativePath).Content.PutAsync(s).Result;
                     return new File(OneDrive, driveItem);
                 }
             }
 
             public List<Item> GetChildren(string filter = null)
             {
-                var i = Task.Run(() =>
-                {
-                    return DriveItemRequestBuilder.Children.GetAsync(
+                //var i = Task.Run(() =>
+                //{
+                //    return DriveItemRequestBuilder.Children.GetAsync(
+                //        rc =>
+                //        {
+                //            rc.QueryParameters.Filter = filter;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
+                //        }
+                //        );
+                //}).Result.Value;
+                var i = DriveItemRequestBuilder.Children.GetAsync(
                         rc =>
                         {
                             rc.QueryParameters.Filter = filter;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
                         }
-                        );
-                }).Result.Value;
+                        ).Result.Value;
 
                 return i?.Select(a => New(OneDrive, a)).ToList();
             }
 
             public List<File> GetFiles(string filter = null)
             {
-                var i = Task.Run(() =>
-                {
-                    string f = "file ne null";
-                    if (filter != null)
-                        f = "(" + f + ") and (" + filter + ")";
-                    return DriveItemRequestBuilder.Children.GetAsync(
+                //var i = Task.Run(() =>
+                //{
+                //    string f = "file ne null";
+                //    if (filter != null)
+                //        f = "(" + f + ") and (" + filter + ")";
+                //    return DriveItemRequestBuilder.Children.GetAsync(
+                //        rc =>
+                //        {
+                //            rc.QueryParameters.Filter = f;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
+                //        }
+                //    );
+                //}).Result.Value;
+                string f = "file ne null";
+                if (filter != null)
+                    f = "(" + f + ") and (" + filter + ")";
+                var i = DriveItemRequestBuilder.Children.GetAsync(
                         rc =>
                         {
                             rc.QueryParameters.Filter = f;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
                         }
-                    );
-                }).Result.Value;
+                    ).Result.Value;
 
                 return i?.Select(a => (File)New(OneDrive, a)).ToList();
                 //return DriveItem.Children.Where(a => a.File != null).Select(a => new File(OneDrive, a)).ToList();
@@ -157,18 +175,27 @@ namespace Cliver
 
             public List<Folder> GetFolders(string filter = null)
             {
-                var i = Task.Run(() =>
-                {
+                //var i = Task.Run(() =>
+                //{
+                //    string f = "folder ne null";
+                //    if (filter != null)
+                //        f = "(" + f + ") and (" + filter + ")";
+                //    return DriveItemRequestBuilder.Children.GetAsync(
+                //        rc =>
+                //        {
+                //            rc.QueryParameters.Filter = f;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
+                //        }
+                //        );
+                //}).Result.Value;
                     string f = "folder ne null";
                     if (filter != null)
                         f = "(" + f + ") and (" + filter + ")";
-                    return DriveItemRequestBuilder.Children.GetAsync(
+                var i = DriveItemRequestBuilder.Children.GetAsync(
                         rc =>
                         {
                             rc.QueryParameters.Filter = f;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
                         }
-                        );
-                }).Result.Value;
+                        ).Result.Value;
 
                 return i?.Select(a => (Folder)New(OneDrive, a)).ToList();
                 //return DriveItem.Children.Where(a => a.Folder != null).Select(a => new Folder(OneDrive, a)).ToList();
@@ -176,51 +203,41 @@ namespace Cliver
 
             public File GetFile(string remoteFileRelativePath)
             {
+                //DriveItem di = null;
+                //var task = Task.Run(() =>
+                //{
+                //    return DriveItemRequestBuilder.ItemWithPath(remoteFileRelativePath).GetAsync();
+                //});
+                //try
+                //{
+                //    di = task.GetAwaiter().GetResult();
+                //}
+                //catch (Microsoft.Graph.ServiceException e)
+                //{
+                //    if (e.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
+                //        return null;
+                //}
+
+                //DriveItem di = Task.Run(() =>
+                //{
+                //    return DriveItemRequestBuilder.ItemWithPath(remoteFileRelativePath).GetAsync();
+                //}).Result;
                 DriveItem di = null;
-                var task = Task.Run(() =>
-                {
-                    return DriveItemRequestBuilder.ItemWithPath(remoteFileRelativePath).GetAsync();
-                });
                 try
                 {
-                    di = task.GetAwaiter().GetResult();
+                    di = DriveItemRequestBuilder.ItemWithPath(remoteFileRelativePath).GetAsync().Result;
                 }
-                catch (Microsoft.Graph.ServiceException e)
+                catch (Exception e)
                 {
-                    if (e.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
+                    var es = e as Microsoft.Graph.ServiceException;
+                    if (es?.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
                         return null;
                 }
+                if (di == null)
+                    return null;
                 if (di.File == null)
                     throw new Exception("Item [remoteFileRelativePath='" + remoteFileRelativePath + "'] is not a file.");
                 return new File(OneDrive, di);
-            }
-
-            public Folder GetFolder2(string remoteFolderRelativePath, bool createIfNotExists)
-            {
-                DriveItem di = null;
-                var task = Task.Run(() =>
-                {
-                    return DriveItemRequestBuilder.ItemWithPath(remoteFolderRelativePath).GetAsync();
-                });
-                try
-                {
-                    di = task.GetAwaiter().GetResult();
-                }
-                catch (Microsoft.Graph.ServiceException e)
-                {
-                    if (e.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
-                        return null;
-                }
-                if (di != null)
-                {
-                    if (di.Folder == null)
-                        throw new Exception("Item [remoteFolderRelativePath='" + remoteFolderRelativePath + "'] is not a folder.");
-                    return new Folder(OneDrive, di);
-                }
-                if (!createIfNotExists)
-                    return null;
-
-                throw new Exception("TBD");
             }
         }
     }

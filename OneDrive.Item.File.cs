@@ -44,11 +44,7 @@ namespace Cliver
                 if (OneDrive.CheckInIsSupported == false)
                     return CheckStatus.NotSupported;
 
-                var i = Task.Run(() =>
-                {
-                    return GetDriveItem("id, publication");
-                }).Result;
-                //Log.Debug0(i.ToStringByJson());
+                var i = GetDriveItem("id, publication");
                 if (i.Publication == null/* checkout is not supported but as of 2024 it is not true anymore */ || string.IsNullOrWhiteSpace(i.Publication.VersionId))
                 {
                     OneDrive.CheckInIsSupported = false;
@@ -73,21 +69,29 @@ namespace Cliver
                 if (SharepointIds == null)
                     throw new Exception("SharepointIds are NULL while the DriveItem status is CheckedOut.");
                 //check if the item is checkedout by someone else
-                var ls = Task.Run(() =>
-                {
-                    return OneDrive.Client.Sites[SharepointIds.SiteId].GetAsync();//error: Unable to find target address
-                    //return OneDrive.Client.Sites[SharepointIds.SiteId].Drives[DriveId].Root.Children.Request().Expand("ListItem").GetAsync();//error: Invalid API or resource
-                }).Result;
-                FieldValueSet fieldValueSet = Task.Run(() =>
-                {
-                    return OneDrive.Client.Sites[SharepointIds.SiteId].Lists[ListItem.Id].Items[ItemId].Fields.GetAsync(
-                        rc =>
-                        {
-                            rc.QueryParameters.Expand = new string[] { "CheckoutUser" };
-                        }
-                    );
-                    //return OneDrive.Client.Sites[SharepointIds.SiteId].Items[ItemId].Fields.Request().Expand("CheckoutUser").GetAsync();
-                }).Result;
+                //var ls = Task.Run(() =>
+                //{
+                //    return OneDrive.Client.Sites[SharepointIds.SiteId].GetAsync();//error: Unable to find target address
+                //    //return OneDrive.Client.Sites[SharepointIds.SiteId].Drives[DriveId].Root.Children.Request().Expand("ListItem").GetAsync();//error: Invalid API or resource
+                //}).Result;
+                var ls = OneDrive.Client.Sites[SharepointIds.SiteId].GetAsync().Result;//error: Unable to find target address
+
+                //FieldValueSet fieldValueSet = Task.Run(() =>
+                //{
+                //    return OneDrive.Client.Sites[SharepointIds.SiteId].Lists[ListItem.Id].Items[ItemId].Fields.GetAsync(
+                //        rc =>
+                //        {
+                //            rc.QueryParameters.Expand = new string[] { "CheckoutUser" };
+                //        }
+                //    );
+                //    //return OneDrive.Client.Sites[SharepointIds.SiteId].Items[ItemId].Fields.Request().Expand("CheckoutUser").GetAsync();
+                //}).Result;
+                FieldValueSet fieldValueSet = OneDrive.Client.Sites[SharepointIds.SiteId].Lists[ListItem.Id].Items[ItemId].Fields.GetAsync(
+                    rc =>
+                    {
+                        rc.QueryParameters.Expand = new string[] { "CheckoutUser" };
+                    }
+                ).Result;
 
                 Log.Debug0(fieldValueSet.AdditionalData.ToStringByJson());
 
@@ -112,10 +116,11 @@ namespace Cliver
                     else
                         return CheckStatus.CheckedOutByNotMe;
 
-                Task.Run(() =>
-                {
-                    DriveItemRequestBuilder.Checkout.PostAsync();//not supported for a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
-                }).Wait();
+                //Task.Run(() =>
+                //{
+                //    DriveItemRequestBuilder.Checkout.PostAsync();//not supported for a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
+                //}).Wait();
+                DriveItemRequestBuilder.Checkout.PostAsync().Wait();
 
                 SleepRoutines.WaitForCondition(() =>
                 {
@@ -128,7 +133,7 @@ namespace Cliver
                 return cs;
             }
 
-            List<string> GetCurrentEditors()
+            public List<string> GetCurrentEditors()
             {
                 //get who keeps it open (for Excel sheets):                    
                 DriveItem di = GetDriveItem(null, "activities");
@@ -167,7 +172,6 @@ namespace Cliver
             /// </summary>
             public int CheckStatusChangeTimeoutSecs = 1;
 
-
             /// <summary>
             /// (!)Not supported on a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
             /// (!)It will not check-in if the file already is checked-in, which only makes difference if setting a comment.
@@ -182,14 +186,19 @@ namespace Cliver
 
                 if (comment == null)
                     comment = "by " + Log.ProgramName;
-                Task.Run(() =>
+                //Task.Run(() =>
+                //{
+                //    var rb = new CheckinPostRequestBody
+                //    {
+                //        Comment = comment,
+                //    };
+                //    DriveItemRequestBuilder.Checkin.PostAsync(rb);//not supported for a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
+                //}).Wait();
+                var rb = new CheckinPostRequestBody
                 {
-                    var rb = new CheckinPostRequestBody
-                    {
-                        Comment = comment,
-                    };
-                    DriveItemRequestBuilder.Checkin.PostAsync(rb);//not supported for a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
-                }).Wait();
+                    Comment = comment,
+                };
+                DriveItemRequestBuilder.Checkin.PostAsync(rb).Wait();
 
                 cs = CheckStatus.NotSupported;
                 SleepRoutines.WaitForCondition(() =>
@@ -213,11 +222,12 @@ namespace Cliver
 
             public void Download(string localFile)
             {
-                using (Stream s = Task.Run(() =>
-                    {
-                        return DriveItemRequestBuilder.Content.GetAsync();
-                    }).Result
-                )
+                //using (Stream s = Task.Run(() =>
+                //    {
+                //        return DriveItemRequestBuilder.Content.GetAsync();
+                //    }).Result
+                //)
+                using (Stream s = DriveItemRequestBuilder.Content.GetAsync().Result)
                 {
                     using (var fileStream = System.IO.File.Create(localFile))
                     {
@@ -231,10 +241,11 @@ namespace Cliver
             {
                 using (Stream s = System.IO.File.OpenRead(localFile))
                 {
-                    DriveItem = Task.Run(() =>
-                    {
-                        return DriveItemRequestBuilder.Content.PutAsync(s);
-                    }).Result;
+                    //DriveItem = Task.Run(() =>
+                    //{
+                    //    return DriveItemRequestBuilder.Content.PutAsync(s);
+                    //}).Result;
+                    DriveItem = DriveItemRequestBuilder.Content.PutAsync(s).Result;
                 }
             }
         }

@@ -52,9 +52,11 @@ namespace Cliver
             //application.UserTokenCache.SetCacheOptions(new CacheOptions { UseSharedCache = false });
 
             if (string.IsNullOrWhiteSpace(MicrosoftSettings.MicrosoftAccount))
-                account = Task.Run(() => application.GetAccountsAsync()).Result.FirstOrDefault();
+                //account = Task.Run(() => application.GetAccountsAsync()).Result.FirstOrDefault();
+                account = application.GetAccountsAsync().Result.FirstOrDefault();
             else
-                account = Task.Run(() => application.GetAccountsAsync()).Result.FirstOrDefault(a => a.Username == MicrosoftSettings.MicrosoftAccount);
+                //account = Task.Run(() => application.GetAccountsAsync()).Result.FirstOrDefault(a => a.Username == MicrosoftSettings.MicrosoftAccount);
+                account = application.GetAccountsAsync().Result.FirstOrDefault(a => a.Username == MicrosoftSettings.MicrosoftAccount);
 
             return new GraphServiceClient(httpClient, new AuthenticationProvider(this));
         }
@@ -142,13 +144,17 @@ namespace Cliver
 
         public User GetUser(string userId = null)
         {
-            return Task.Run(() =>
-            {
-                if (userId == null)
-                    return Client.Me.GetAsync();
-                else
-                    return Client.Users[userId].GetAsync();
-            }).Result;
+            //return Task.Run(() =>
+            //{
+            //    if (userId == null)
+            //        return Client.Me.GetAsync();
+            //    else
+            //        return Client.Users[userId].GetAsync();
+            //}).Result;
+            if (userId == null)
+                return Client.Me.GetAsync().Result;
+            else
+                return Client.Users[userId].GetAsync().Result;
         }
 
         public User User

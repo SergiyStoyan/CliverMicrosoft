@@ -51,7 +51,8 @@ namespace Cliver
             get
             {
                 if (_UserDrive != null)
-                    _UserDrive = Task.Run(() => { return Client.Me.Drive.GetAsync(); }).Result;
+                    //_UserDrive = Task.Run(() => { return Client.Me.Drive.GetAsync(); }).Result;
+                    _UserDrive = Client.Me.Drive.GetAsync().Result;
                 return _UserDrive;
             }
         }
@@ -59,10 +60,13 @@ namespace Cliver
 
         public Item GetItemByPath(string path)
         {
-            DriveItem driveItem = Task.Run(() =>
-            {
-                return Client.Drives[UserDrive.Id].Root.ItemWithPath(path).GetAsync();
-            }).Result;
+            //DriveItem driveItem = Task.Run(() =>
+            //{
+            //    return Client.Drives[UserDrive.Id].Root.ItemWithPath(path).GetAsync();
+            //}).Result;
+            //return Item.New(this, driveItem);
+
+            DriveItem driveItem = Client.Drives[UserDrive.Id].Root.ItemWithPath(path).GetAsync().Result;
             return Item.New(this, driveItem);
         }
 
@@ -77,10 +81,13 @@ namespace Cliver
         /// <returns></returns>
         public Item GetItemByLink(string linkOrEncodedLinkOrShareId)
         {
-            DriveItem driveItem = Task.Run(() =>
-            {
-                return Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync();
-            }).Result;
+            //DriveItem driveItem = Task.Run(() =>
+            //{
+            //    return Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync();
+            //}).Result;
+            //return Item.New(this, driveItem);
+
+            DriveItem driveItem = Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync().Result;
             return Item.New(this, driveItem);
         }
 
