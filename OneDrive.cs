@@ -12,6 +12,7 @@ using System.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
+using Microsoft.Graph.Models;
 
 namespace Cliver
 {
@@ -20,35 +21,47 @@ namespace Cliver
         public OneDrive(MicrosoftSettings microsoftSettings) : base(microsoftSettings)
         {
         }
+        public bool? CheckInIsSupported { get; internal set; } = null;
 
-//        public void test(string itemId)
-//        {
-//            var i = Task.Run(() =>
-//            {/*
-//              .../me/drive/root/children
-//Drive on SharePoint's sites works in the same way, but instead of me you should provide global Id of the site you want to access (global Id is <hostName>,<siteCollectionId>,<siteId>).
-//In conclusion: this endpoint gives us a list of files on a specified site's default drive:
-//.../Sharepoint/sites/<hostName>,<siteCollectionId>,<siteId>/drive/root/children
-//If you want to access files on a specific list, all you need is the id of the list:
-//.../Sharepoint/sites/<hostName>,<siteCollectionId>,<siteId>/lists/<listId>/drive/root/children
-//                */
+        //        public void test(string itemId)
+        //        {
+        //            var i = Task.Run(() =>
+        //            {/*
+        //              .../me/drive/root/children
+        //Drive on SharePoint's sites works in the same way, but instead of me you should provide global Id of the site you want to access (global Id is <hostName>,<siteCollectionId>,<siteId>).
+        //In conclusion: this endpoint gives us a list of files on a specified site's default drive:
+        //.../Sharepoint/sites/<hostName>,<siteCollectionId>,<siteId>/drive/root/children
+        //If you want to access files on a specific list, all you need is the id of the list:
+        //.../Sharepoint/sites/<hostName>,<siteCollectionId>,<siteId>/lists/<listId>/drive/root/children
+        //                */
 
-//                string siteId = Regex.Replace(itemId, @"(?<=.*?sharepoint.com).*$", "");
-//                //Log.Inform(site)
-//                string driveId = Regex.Replace(itemId, @"(\!.*)", "");
-//                IDriveItemRequestBuilder driveItemRequestBuilder = Client.Sites[siteId].Drives[driveId].Items[itemId];
-//                return driveItemRequestBuilder.Request().Select("id, publication").GetAsync();
+        //                string siteId = Regex.Replace(itemId, @"(?<=.*?sharepoint.com).*$", "");
+        //                //Log.Inform(site)
+        //                string driveId = Regex.Replace(itemId, @"(\!.*)", "");
+        //                IDriveItemRequestBuilder driveItemRequestBuilder = Client.Sites[siteId].Drives[driveId].Items[itemId];
+        //                return driveItemRequestBuilder.Request().Select("id, publication").GetAsync();
 
-//                //return getDriveItemRequestBuilder(itemId).Request().Select("id, Shared, CreatedBy, CreatedByUser, name").GetAsync();
-//                //return Client.Shares[itemId].DriveItem.Request().Select("id, name, shared").GetAsync();
-//            }).Result;
-//        }
+        //                //return getDriveItemRequestBuilder(itemId).Request().Select("id, Shared, CreatedBy, CreatedByUser, name").GetAsync();
+        //                //return Client.Shares[itemId].DriveItem.Request().Select("id, name, shared").GetAsync();
+        //            }).Result;
+        //        }
+
+        public Drive UserDrive
+        {
+            get
+            {
+                if (_UserDrive != null)
+                    _UserDrive = Task.Run(() => { return Client.Me.Drive.GetAsync(); }).Result;
+                return _UserDrive;
+            }
+        }
+        Drive _UserDrive;
 
         public Item GetItemByPath(string path)
         {
             DriveItem driveItem = Task.Run(() =>
             {
-                return Client.Me.Drive.Root.ItemWithPath(path).Request().GetAsync();
+                return Client.Drives[UserDrive.Id].Root.ItemWithPath(path).GetAsync();
             }).Result;
             return Item.New(this, driveItem);
         }
@@ -130,7 +143,7 @@ namespace Cliver
         {
             DriveItem driveItem = Task.Run(() =>
             {
-                return Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.Request()/*.Select("id, name, shared, remoteItem")*/.GetAsync();
+                return Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync();
             }).Result;
             return Item.New(this, driveItem);
         }
@@ -153,35 +166,87 @@ namespace Cliver
             return "u!" + base64Value.TrimEnd('=').Replace('/', '_').Replace('+', '-');
         }
 
-        public IEnumerable<Item> Search(string pattern)
-        {
-            IDriveSearchCollectionPage driveItems = Task.Run(() =>
-            {
-                return Client.Me.Drive.Search(pattern).Request().GetAsync();
-            }).Result;
+        //public IEnumerable<Item> Search(string pattern)
+        //{
+        //    IDriveSearchCollectionPage driveItems = Task.Run(() =>
+        //    {
+        //        return Client.Me.Drive.Search(pattern).Request().GetAsync();
+        //    }).Result;
 
-            foreach (DriveItem item in driveItems)
-                yield return Item.New(this, item);
+        //    foreach (DriveItem item in driveItems)
+        //        yield return Item.New(this, item);
+        //}
+
+        public Folder GetFolder(Path folder, bool createIfNotExists)
+        {
+            return Folder.Get(this, folder, createIfNotExists);
         }
 
-        public Folder GetFolder(string remoteFolder, bool createIfNotExists)
+        public Folder GetFolder(string linkOrEncodedLinkOrShareId, bool createIfNotExists)
         {
-            return Folder.New(this, remoteFolder, createIfNotExists);
+            return GetFolder(new Path(linkOrEncodedLinkOrShareId), createIfNotExists);
         }
 
-        public File GetFile(string remoteFile, bool createIfNotExists)
+        public File GetFile(Path file)
         {
-            return File.New(this, remoteFile, createIfNotExists);
-        }
-
-        public Folder GetFolder(string linkOrEncodedLinkOrShareId)
-        {
-            return (Folder)GetItemByLink(linkOrEncodedLinkOrShareId);
+            return File.Get(this, file);
         }
 
         public File GetFile(string linkOrEncodedLinkOrShareId)
         {
-            return (File)GetItemByLink(linkOrEncodedLinkOrShareId);
+            return GetFile(new Path(linkOrEncodedLinkOrShareId));
+        }
+
+        public File UploadFile(string localFile, Path remoteFile)
+        {
+            Folder f = GetParentFolder(remoteFile, true, out string folderOrFileName);
+            return f.UploadFile(localFile, folderOrFileName);
+        }
+
+        public File UploadFile(string localFile, string linkOrEncodedLinkOrShareId)
+        {
+            return UploadFile(localFile, new Path(linkOrEncodedLinkOrShareId));
+        }
+
+        public Folder GetParentFolder(Path itemPath, bool createIfNotExists, out string folderOrFileName)
+        {
+            string relativeParentFolder;
+            if (itemPath.BaseObject_LinkOrEncodedLinkOrShareId == null)
+            {
+                SplitRelativePath(itemPath.RelativePath, out relativeParentFolder, out folderOrFileName);
+                if (relativeParentFolder != null)
+                    return GetFolder(new Path(null, relativeParentFolder), createIfNotExists);
+                return null;//parent of Root
+            }
+            Item i = GetItemByLink(itemPath.BaseObject_LinkOrEncodedLinkOrShareId);
+            if (i == null)
+            {
+                folderOrFileName = null;
+                return null;
+            }
+            if (!(i is Folder))
+                throw new Exception("Link points not to a folder: " + itemPath.BaseObject_LinkOrEncodedLinkOrShareId);
+            SplitRelativePath(itemPath.RelativePath, out relativeParentFolder, out folderOrFileName);
+            if (relativeParentFolder != null)
+                return ((Folder)i).GetFolder(relativeParentFolder, createIfNotExists);
+            return (Folder)i;
+        }
+
+        public File DownloadFile(Path remoteFile, string localFile)
+        {
+            File f = File.Get(this, remoteFile);
+            f.Download(localFile);
+            return f;
+        }
+
+        public File DownloadFile(string linkOrEncodedLinkOrShareId, string localFile)
+        {
+            return DownloadFile(new Path(linkOrEncodedLinkOrShareId), localFile);
+        }
+
+        public static bool IsLinkOneDrive(string link)
+        {
+            return Regex.IsMatch(link, @"https\://(drive.google.com/drive/|1drv.ms/)", RegexOptions.IgnoreCase);
         }
     }
 }
