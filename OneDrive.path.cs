@@ -24,12 +24,12 @@ namespace Cliver
         //    buildPaths(paths, currentPath, GetItemByLink(currentObject.ListItem.ParentReference.ShareId));
         //}
 
-        public enum GettingMode
-        {
-            AlwaysCreateNew,
-            GetLatestExistingOrCreate,
-            GetLatestExistingOnly,
-        }
+        //public enum GettingMode
+        //{
+        //    AlwaysCreateNew,
+        //    GetLatestExistingOrCreate,
+        //    GetLatestExistingOnly,
+        //}
         //Folder getFolder(string parentFolderId, string folderName, GettingMode gettingMode)
         //{
         //    if (parentFolderId == null && string.IsNullOrEmpty(folderName))//root folder
@@ -84,22 +84,22 @@ namespace Cliver
         //    return @object;
         //}
 
-        class Cache
-        {
-            public bool Get(Path path, out Item @object)
-            {
-                return paths2object.TryGetValue(path.Key, out @object);
-            }
+        //class Cache
+        //{
+        //    public bool Get(Path path, out Item @object)
+        //    {
+        //        return paths2object.TryGetValue(path.Key, out @object);
+        //    }
 
-            public void Set(Path path, Item @object)
-            {
-                if (@object != null)
-                    paths2object[path.Key] = @object;
-            }
+        //    public void Set(Path path, Item @object)
+        //    {
+        //        if (@object != null)
+        //            paths2object[path.Key] = @object;
+        //    }
 
-            Dictionary<string, Item> paths2object = new Dictionary<string, Item>();
-        }
-        readonly Cache cache = new Cache();
+        //    Dictionary<string, Item> paths2object = new Dictionary<string, Item>();
+        //}
+        //readonly Cache cache = new Cache();
 
         public class Path
         {
@@ -111,17 +111,6 @@ namespace Cliver
             /// https://1drv.ms/x/s!AhOCuP8qgrysblVFtEANPUBlBu4
             /// </summary>
             public string BaseObject_LinkOrEncodedLinkOrShareId { get; private set; }
-
-            ///// <summary>
-            ///// Must be used only by Graph methods
-            ///// </summary>
-            //public string BaseObject_LinkOrShareId_encoded { get; private set; }
-            //public string BaseObject_ShareId { get; private set; }
-
-            ///// <summary>
-            ///// Must be used only by Graph methods
-            ///// </summary>
-            //public string RelativePath_escaped { get; private set; }
             public string RelativePath { get; private set; }
             public string Key { get; private set; }
 
@@ -220,6 +209,11 @@ namespace Cliver
             //}
         }
 
+        /// <summary>
+        /// (!)OneDrive API always tries to url-unescape path arguments.
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
         public static string GetEscapedPath(string path)
         {
             //return Regex.Replace(path, @"\%", @"%25");

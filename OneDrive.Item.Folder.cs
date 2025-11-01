@@ -57,10 +57,6 @@ namespace Cliver
 
                 string escapedRelativePath = GetEscapedPath(relativePath);//(!)the API always tries to unescape
 
-                //DriveItem di = Task.Run(() =>
-                //{
-                //    return DriveItemRequestBuilder.ItemWithPath(relativePath).GetAsync();
-                //}).Result;
                 DriveItem di = get();
                 DriveItem get()
                 {
@@ -100,10 +96,6 @@ namespace Cliver
                                 {"@microsoft.graph.conflictBehavior", "rename"}
                             }
                     };
-                    //DriveItem cdi = Task.Run(() =>
-                    //{
-                    //    return DriveItemRequestBuilder.Children.PostAsync(di);
-                    //}).Result;
                     DriveItem cdi = DriveItemRequestBuilder.Children.PostAsync(di).Result;
                     return new Folder(OneDrive, cdi);
                 }
@@ -125,10 +117,6 @@ namespace Cliver
 
                 using (Stream s = System.IO.File.OpenRead(localFile))
                 {
-                    //DriveItem driveItem = Task.Run(() =>
-                    //{
-                    //    return DriveItemRequestBuilder.ItemWithPath(remoteFileRelativePath).Content.PutAsync(s);
-                    //}).Result;
                     DriveItem driveItem = DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).Content.PutAsync(s).Result;
                     return new File(OneDrive, driveItem);
                 }
@@ -136,15 +124,6 @@ namespace Cliver
 
             public List<Item> GetChildren(string filter = null)
             {
-                //var i = Task.Run(() =>
-                //{
-                //    return DriveItemRequestBuilder.Children.GetAsync(
-                //        rc =>
-                //        {
-                //            rc.QueryParameters.Filter = filter;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
-                //        }
-                //        );
-                //}).Result.Value;
                 var i = DriveItemRequestBuilder.Children.GetAsync(
                         rc =>
                         {
@@ -157,18 +136,6 @@ namespace Cliver
 
             public List<File> GetFiles(string filter = null)
             {
-                //var i = Task.Run(() =>
-                //{
-                //    string f = "file ne null";
-                //    if (filter != null)
-                //        f = "(" + f + ") and (" + filter + ")";
-                //    return DriveItemRequestBuilder.Children.GetAsync(
-                //        rc =>
-                //        {
-                //            rc.QueryParameters.Filter = f;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
-                //        }
-                //    );
-                //}).Result.Value;
                 string f = "file ne null";
                 if (filter != null)
                     f = "(" + f + ") and (" + filter + ")";
@@ -185,18 +152,6 @@ namespace Cliver
 
             public List<Folder> GetFolders(string filter = null)
             {
-                //var i = Task.Run(() =>
-                //{
-                //    string f = "folder ne null";
-                //    if (filter != null)
-                //        f = "(" + f + ") and (" + filter + ")";
-                //    return DriveItemRequestBuilder.Children.GetAsync(
-                //        rc =>
-                //        {
-                //            rc.QueryParameters.Filter = f;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
-                //        }
-                //        );
-                //}).Result.Value;
                 string f = "folder ne null";
                 if (filter != null)
                     f = "(" + f + ") and (" + filter + ")";
@@ -213,21 +168,6 @@ namespace Cliver
 
             public File GetFile(string remoteFileRelativePath)
             {
-                //DriveItem di = null;
-                //var task = Task.Run(() =>
-                //{
-                //    return DriveItemRequestBuilder.ItemWithPath(remoteFileRelativePath).GetAsync();
-                //});
-                //try
-                //{
-                //    di = task.GetAwaiter().GetResult();
-                //}
-                //catch (Microsoft.Graph.ServiceException e)
-                //{
-                //    if (e.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
-                //        return null;
-                //}
-
                 string escapedRelativePath = GetEscapedPath(remoteFileRelativePath);//(!)the API always tries to unescape
 
                 DriveItem di = null;

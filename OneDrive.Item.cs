@@ -115,17 +115,6 @@ namespace Cliver
             {
                 lock (this)
                 {
-                    //Permission p = Task.Run(() =>
-                    //{
-                    //    var requestBody = new CreateLinkPostRequestBody
-                    //    {
-                    //        Type = linkRole.ToString(),
-                    //        Password = password,
-                    //        Scope = linkScopes.ToString(),
-                    //        RetainInheritedPermissions = retainInheritedPermissions,
-                    //    };
-                    //    return OneDrive.Client.Drives[DriveId].Items[ItemId].CreateLink.PostAsync(requestBody);
-                    //}).Result;
                     var requestBody = new CreateLinkPostRequestBody
                     {
                         Type = linkRole.ToString(),
@@ -151,16 +140,6 @@ namespace Cliver
 
             public DriveItem GetDriveItem(string[] select = null, string[] expand = null/*, string selectWithoutPrefix = null, string expandWithoutPrefix = null*/)
             {
-                //return Task.Run(() =>
-                //{
-                //    return DriveItemRequestBuilder.GetAsync(
-                //        rc =>
-                //        {
-                //            rc.QueryParameters.Select = select;//new string[] { "id", "createdDateTime" }
-                //            rc.QueryParameters.Expand = expand;
-                //        }
-                //        );
-                //}).Result;
                 return DriveItemRequestBuilder.GetAsync(
                     rc =>
                     {
@@ -177,10 +156,6 @@ namespace Cliver
 
             public DriveItem GetRootDriveItem()
             {
-                //return Task.Run(() =>
-                //{
-                //    return OneDrive.Client.Drives[DriveId].Root.GetAsync();
-                //}).Result;
                 return OneDrive.Client.Drives[DriveId].Root.GetAsync().Result;
             }
 
@@ -189,10 +164,6 @@ namespace Cliver
                 if (refresh || DriveItem.ParentReference == null)
                     DriveItem.ParentReference = GetDriveItem("ParentReference").ParentReference;
 
-                //DriveItem parentDriveItem = Task.Run(() =>
-                //{
-                //    return OneDrive.Client.Drives[DriveId].Items[DriveItem.ParentReference.Id].GetAsync();
-                //}).Result;
                 DriveItem parentDriveItem = OneDrive.Client.Drives[DriveId].Items[DriveItem.ParentReference.Id].GetAsync().Result;
 
                 if (parentDriveItem == null)
@@ -202,10 +173,6 @@ namespace Cliver
 
             public void Delete()
             {
-                //Task.Run(() =>
-                //{
-                //    DriveItemRequestBuilder.DeleteAsync();
-                //}).Wait();
                 DriveItemRequestBuilder.DeleteAsync().Wait();
             }
 
@@ -245,10 +212,6 @@ namespace Cliver
 
             public IEnumerable<Item> Search(string query)
             {
-                //var driveItems = Task.Run(() =>
-                //{
-                //    return DriveItemRequestBuilder.SearchWithQ(query).GetAsSearchWithQGetResponseAsync();
-                //}).Result;
                 var driveItems = DriveItemRequestBuilder.SearchWithQ(query).GetAsSearchWithQGetResponseAsync().Result;
 
                 foreach (DriveItem item in driveItems.Value)
@@ -268,11 +231,6 @@ namespace Cliver
 
             public Item Get(string relativePath)
             {
-                //var di = Task.Run(() =>
-                //{
-                //    return DriveItemRequestBuilder.ItemWithPath(relativePath).GetAsync();
-                //}).Result;
-
                 string escapedRelativePath = GetEscapedPath(relativePath);//(!)the API always tries to unescape
 
                 var di = DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync().Result;
