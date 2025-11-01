@@ -13,16 +13,16 @@ namespace Cliver
 {
     public partial class OneDrive
     {
-        void buildPaths(List<Path> paths, Path currentPath, Item currentObject)
-        {
-            if (currentObject == null || currentObject.ListItem.ParentReference == null)//it is root 'My Drive'
-            {
-                paths.Add(currentPath);
-                return;
-            }
-            currentPath = new Path(null, currentObject.ListItem.Name + (currentPath == null ? "" : Path.DirectorySeparatorChar + currentPath));
-            buildPaths(paths, currentPath, GetItemByLink(currentObject.ListItem.ParentReference.ShareId));
-        }
+        //void buildPaths(List<Path> paths, Path currentPath, Item currentObject)
+        //{
+        //    if (currentObject == null || currentObject.ListItem.ParentReference == null)//it is root 'My Drive'
+        //    {
+        //        paths.Add(currentPath);
+        //        return;
+        //    }
+        //    currentPath = new Path(null, currentObject.ListItem.Name + (currentPath == null ? "" : Path.DirectorySeparatorChar + currentPath));
+        //    buildPaths(paths, currentPath, GetItemByLink(currentObject.ListItem.ParentReference.ShareId));
+        //}
 
         public enum GettingMode
         {
@@ -103,10 +103,26 @@ namespace Cliver
 
         public class Path
         {
+            /// <summary>
+            /// It works for either shared or not shared items.
+            /// Expected to work for links of any form:
+            /// https://onedrive.live.com/redir?resid=1231244193912!12&authKey=1201919!12921!1
+            /// https://onedrive.live.com/?cid=ACBC822AFFB88213&id=ACBC822AFFB88213%21102&parId=root&o=OneUp
+            /// https://1drv.ms/x/s!AhOCuP8qgrysblVFtEANPUBlBu4
+            /// </summary>
             public string BaseObject_LinkOrEncodedLinkOrShareId { get; private set; }
+
+            ///// <summary>
+            ///// Must be used only by Graph methods
+            ///// </summary>
+            //public string BaseObject_LinkOrShareId_encoded { get; private set; }
             //public string BaseObject_ShareId { get; private set; }
+
+            /// <summary>
+            /// Must be used only by Graph methods
+            /// </summary>
+            public string RelativePath_escaped { get; private set; }
             public string RelativePath { get; private set; }
-            public string UnescapedRelativePath { get; private set; }
             public string Key { get; private set; }
 
             public const string DirectorySeparatorChar = @"\";
@@ -144,7 +160,7 @@ namespace Cliver
             {
                 if (string.IsNullOrEmpty(pathKey))
                 {
-                    initialize(null, null);
+                    initialize(null, null, false);
                     return;
                 }
                 string[] ps = Regex.Split(pathKey, @"\\\\");
@@ -158,17 +174,17 @@ namespace Cliver
                 }
                 if (ps.Length > 2)
                     throw new Exception2(nameof(pathKey) + " has more than 2 parts: " + "'" + pathKey + "'");
-                initialize(ps[0], ps[1]);
+                initialize(ps[0], ps[1], false);
             }
 
-            public Path(string baseObject_LinkOrEncodedLinkOrShareId, string relativePath)
+            public Path(string baseObject_LinkOrEncodedLinkOrShareId, string relativePath, bool escapeRelativePath = true)
             {
-                initialize(baseObject_LinkOrEncodedLinkOrShareId, relativePath);
+                initialize(baseObject_LinkOrEncodedLinkOrShareId, relativePath, escapeRelativePath);
             }
 
             public const string RootFolderId = "/";
 
-            void initialize(string baseObject_LinkOrEncodedLinkOrShareId, string relativePath)
+            void initialize(string baseObject_LinkOrEncodedLinkOrShareId, string relativePath, bool escapeRelativePath)
             {
                 //if (relativeFolderPath.Contains(DirectorySeparatorChar))
                 //    throw new Exception2(nameof(GoogleDrive.Path) + " cannot contain " + DirectorySeparatorChar);
@@ -186,23 +202,22 @@ namespace Cliver
                 }
                 if (relativePath != null)
                 {
-                    UnescapedRelativePath = Regex.Replace(relativePath, @"\\{2,}", @"\").Trim().Trim('\\');
-                    RelativePath = GetEscapedPath(UnescapedRelativePath);
+                    RelativePath = Regex.Replace(relativePath, @"\\{2,}", @"\").Trim().Trim('\\');
+                    RelativePath_escaped = escapeRelativePath ? GetEscapedPath(RelativePath) : RelativePath;
                 }
                 //Key = BaseObject_ShareId + @"\\" + RelativePath;
-                Key = baseObject_LinkOrEncodedLinkOrShareId + @"\\" + RelativePath;
+                Key = baseObject_LinkOrEncodedLinkOrShareId + @"\\" + RelativePath_escaped;
             }
 
             public Path GetDescendant(string relativeDescendantPath)
             {
-                //return new Path(BaseObject_ShareId, RelativePath + DirectorySeparatorChar + relativeDescendantPath);
                 return new Path(BaseObject_LinkOrEncodedLinkOrShareId, RelativePath + DirectorySeparatorChar + relativeDescendantPath);
             }
 
-            public bool SplitRelativePath(out string relativeParentFolder, out string folderOrFileName)
-            {
-                return OneDrive.SplitRelativePath(RelativePath, out relativeParentFolder, out folderOrFileName);
-            }
+            //public bool SplitRelativePath(out string relativeParentFolder, out string folderOrFileName)
+            //{
+            //    return OneDrive.SplitRelativePath(RelativePath_escaped, out relativeParentFolder, out folderOrFileName);
+            //}
         }
 
         public static string GetEscapedPath(string path)
@@ -235,6 +250,24 @@ namespace Cliver
             relativeParentFolder = null;
             folderOrFileName = relativePath.TrimEnd('\\', '/');
             return true;
+        }
+
+        /// <summary>
+        /// Provides argument for Client.Shares[shareIdOrEncodedSharingUrl].
+        /// Expected to work for links of any form:
+        /// https://onedrive.live.com/redir?resid=1231244193912!12&authKey=1201919!12921!1
+        /// https://onedrive.live.com/?cid=ACBC822AFFB88213&id=ACBC822AFFB88213%21102&parId=root&o=OneUp
+        /// https://1drv.ms/x/s!AhOCuP8qgrysblVFtEANPUBlBu4
+        /// Encoded link or shareId is retruned unchanged.
+        /// </summary>
+        /// <param name="linkOrEncodedLinkOrShareId"></param>
+        /// <returns></returns>
+        static public string GetEncodedLinkOrShareId(string linkOrEncodedLinkOrShareId)
+        {
+            if (Regex.IsMatch(linkOrEncodedLinkOrShareId, @"^(u|s)\!"))
+                return linkOrEncodedLinkOrShareId;
+            string base64Value = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(linkOrEncodedLinkOrShareId));
+            return "u!" + base64Value.TrimEnd('=').Replace('/', '_').Replace('+', '-');
         }
 
         //public string GetLink(Path folderOrFile)

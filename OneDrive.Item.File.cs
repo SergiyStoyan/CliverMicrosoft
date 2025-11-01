@@ -22,32 +22,10 @@ namespace Cliver
         {
             public static File Get(OneDrive oneDrive, Path file)
             {
-                Item item = null;
-                if (file.BaseObject_LinkOrEncodedLinkOrShareId != null)
-                {
-                    Item bi = oneDrive.GetItemByLink(file.BaseObject_LinkOrEncodedLinkOrShareId);
-                    if (bi == null)
-                        return null;
-                    if (file.RelativePath == null)
-                    {
-                        if (bi is File)
-                            return (File)bi;
-                        throw new Exception("Path points to not a file: " + file);
-                    }
-                    if (!(bi is Folder))
-                        throw new Exception("Base object link points to not a folder: " + file.BaseObject_LinkOrEncodedLinkOrShareId);
-
-                    item = bi.Get(file.RelativePath);
-                }
-                else
-                {
-                    item = oneDrive.GetItemByPath(file.RelativePath);
-                }
-                if (item == null)
-                    return null;
-                if (item is File)
-                    return (File)item;
-                throw new Exception("Path points to not a file: " + file);
+                Item i = Item.Get(oneDrive, file);
+                if (i is File)
+                    return (File)i;
+                throw new Exception("Path points not to a file: " + file);
             }
 
             internal File(OneDrive oneDrive, DriveItem driveItem) : base(oneDrive, driveItem)

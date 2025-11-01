@@ -31,6 +31,25 @@ namespace Cliver
                 throw new Exception("Unknown DriveItem object type: " + driveItem.ToStringByJson());
             }
 
+            static public Item Get(OneDrive oneDrive, Path item)
+            {
+                Item i = null;
+                if (item.BaseObject_LinkOrEncodedLinkOrShareId != null)
+                {
+                    Item bi = oneDrive.GetItemByLink(item.BaseObject_LinkOrEncodedLinkOrShareId);
+                    if (bi == null)
+                        return null;
+                    if (item.RelativePath_escaped == null)
+                        return bi;
+                    if (!(bi is Folder))
+                        throw new Exception("Base object link points not to a folder: " + item.BaseObject_LinkOrEncodedLinkOrShareId);
+                    i = bi.Get(item.RelativePath_escaped);
+                }
+                else
+                    i = oneDrive.GetItemByPath(item.RelativePath_escaped);
+                return i;
+            }
+
             protected Item(OneDrive oneDrive, DriveItem driveItem)
             {
                 OneDrive = oneDrive;
@@ -38,14 +57,6 @@ namespace Cliver
                 ItemId = DriveItem.Id;
                 set();
             }
-
-            //protected Item(OneDrive oneDrive, string driveId, string itemId)
-            //{
-            //    OneDrive = oneDrive;
-            //    DriveId = driveId;
-            //    ItemId = itemId;
-            //    set();
-            //}
 
             void set()
             {
@@ -235,19 +246,6 @@ namespace Cliver
                 }
                 return DriveItem.ParentReference.Path + "/" + DriveItem.Name;
             }
-
-            //public FieldValueSet GetFieldValueSet(string select = null, string expand = null)
-            //{
-            //    return Task.Run(() =>
-            //    {
-            //        var queryOptions = new List<QueryOption>();
-            //        if (select != null)
-            //            queryOptions.Add(new QueryOption("$select", select));
-            //        if (expand != null)
-            //            queryOptions.Add(new QueryOption("$expand", expand));
-            //        return OneDrive.Client.Sites[SharepointIds.SiteId].Lists[ListItem.Id].Items[ItemId].Fields.Request(queryOptions).GetAsync();
-            //    }).Result;
-            //}
 
             public Item Get(string relativePath)
             {

@@ -67,6 +67,32 @@ namespace Cliver
         }
 
         /// <summary>
+        /// It works for either shared or not shared items.
+        /// Expected to work for links of any form:
+        /// https://onedrive.live.com/redir?resid=1231244193912!12&authKey=1201919!12921!1
+        /// https://onedrive.live.com/?cid=ACBC822AFFB88213&id=ACBC822AFFB88213%21102&parId=root&o=OneUp
+        /// https://1drv.ms/x/s!AhOCuP8qgrysblVFtEANPUBlBu4
+        /// </summary>
+        /// <param name="linkOrEncodedLinkOrShareId"></param>
+        /// <returns></returns>
+        public Item GetItemByLink(string linkOrEncodedLinkOrShareId)
+        {
+            DriveItem driveItem = Task.Run(() =>
+            {
+                return Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync();
+            }).Result;
+            return Item.New(this, driveItem);
+        }
+
+        //public DriveItem GetRootDriveItem()
+        //{
+        //    return Task.Run(() =>
+        //    {
+        //        return Client.Me.Drive[DriveId].Root.GetAsync();
+        //    }).Result;
+        //}
+
+        /// <summary>
         /// !!!when 'Can view' a user still can hange the file! Probabaly it is due to 'anybody with this link can edit the file'
         /// 
         /// Locks by removing shared premissions.
@@ -130,40 +156,9 @@ namespace Cliver
         //    }
         //}
 
-        /// <summary>
-        /// It works for either shared or not shared items.
-        /// Expected to work for links of any form:
-        /// https://onedrive.live.com/redir?resid=1231244193912!12&authKey=1201919!12921!1
-        /// https://onedrive.live.com/?cid=ACBC822AFFB88213&id=ACBC822AFFB88213%21102&parId=root&o=OneUp
-        /// https://1drv.ms/x/s!AhOCuP8qgrysblVFtEANPUBlBu4
-        /// </summary>
-        /// <param name="linkOrEncodedLinkOrShareId"></param>
-        /// <returns></returns>
-        public Item GetItemByLink(string linkOrEncodedLinkOrShareId)
+        public Item GetItem(Path item)
         {
-            DriveItem driveItem = Task.Run(() =>
-            {
-                return Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync();
-            }).Result;
-            return Item.New(this, driveItem);
-        }
-
-        /// <summary>
-        /// Provides argument for Client.Shares[shareIdOrEncodedSharingUrl].
-        /// Expected to work for links of any form:
-        /// https://onedrive.live.com/redir?resid=1231244193912!12&authKey=1201919!12921!1
-        /// https://onedrive.live.com/?cid=ACBC822AFFB88213&id=ACBC822AFFB88213%21102&parId=root&o=OneUp
-        /// https://1drv.ms/x/s!AhOCuP8qgrysblVFtEANPUBlBu4
-        /// Encoded link or shareId is retruned unchanged.
-        /// </summary>
-        /// <param name="linkOrEncodedLinkOrShareId"></param>
-        /// <returns></returns>
-        static public string GetEncodedLinkOrShareId(string linkOrEncodedLinkOrShareId)
-        {
-            if (Regex.IsMatch(linkOrEncodedLinkOrShareId, @"^(u|s)\!"))
-                return linkOrEncodedLinkOrShareId;
-            string base64Value = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(linkOrEncodedLinkOrShareId));
-            return "u!" + base64Value.TrimEnd('=').Replace('/', '_').Replace('+', '-');
+            return Item.Get(this, item);
         }
 
         //public IEnumerable<Item> Search(string pattern)
@@ -213,12 +208,12 @@ namespace Cliver
             string relativeParentFolder;
             if (itemPath.BaseObject_LinkOrEncodedLinkOrShareId == null)
             {
-                SplitRelativePath(itemPath.RelativePath, out relativeParentFolder, out folderOrFileName);
+                SplitRelativePath(itemPath.RelativePath_escaped, out relativeParentFolder, out folderOrFileName);
                 if (relativeParentFolder != null)
                     return GetFolder(new Path(null, relativeParentFolder), createIfNotExists);
                 return null;//parent of Root
             }
-            Item i = GetItemByLink(itemPath.BaseObject_LinkOrEncodedLinkOrShareId);
+            Item i = GetItem(new Path(itemPath.BaseObject_LinkOrEncodedLinkOrShareId, null));
             if (i == null)
             {
                 folderOrFileName = null;
@@ -226,7 +221,7 @@ namespace Cliver
             }
             if (!(i is Folder))
                 throw new Exception("Link points not to a folder: " + itemPath.BaseObject_LinkOrEncodedLinkOrShareId);
-            SplitRelativePath(itemPath.RelativePath, out relativeParentFolder, out folderOrFileName);
+            SplitRelativePath(itemPath.RelativePath_escaped, out relativeParentFolder, out folderOrFileName);
             if (relativeParentFolder != null)
                 return ((Folder)i).GetFolder(relativeParentFolder, createIfNotExists);
             return (Folder)i;

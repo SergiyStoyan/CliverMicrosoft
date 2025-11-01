@@ -20,44 +20,7 @@ namespace Cliver
     public partial class OneDrive
     {
         public class Folder : Item
-        {
-            public static Folder Get1(OneDrive oneDrive, string remoteFolder, bool createIfNotExists)
-            {
-                Item item = oneDrive.GetItemByPath(remoteFolder);
-                if (item != null)
-                {
-                    if (item is Folder)
-                        return (Folder)item;
-                    throw new Exception("Remote path points to not a folder: " + remoteFolder);
-                }
-                if (!createIfNotExists)
-                    return null;
-
-                throw new Exception("TBD");
-
-                //Match m = Regex.Match(remoteFolder, @"(?'ParentFolder'.*)[\\\/]+(?'Name'.*)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-                //if (!m.Success)
-                //    throw new Exception("Remote folder path could not be separated: " + remoteFolder);
-
-                //Folder parentFolder = Get(oneDrive, m.Groups["ParentFolder"].Value, true);
-                //DriveItem di = new DriveItem
-                //{
-                //    Name = m.Groups["Name"].Value,
-                //    Folder = new Microsoft.Graph.Models.Folder
-                //    {
-                //    },
-                //    AdditionalData = new Dictionary<string, object>()
-                //    {
-                //        {"@microsoft.graph.conflictBehavior", "rename"}
-                //    }
-                //};
-                //DriveItem driveItem = Task.Run(() =>
-                //{
-                //    return parentFolder.DriveItemRequestBuilder.Children.Request().AddAsync(di);
-                //}).Result;
-                //return new Folder(oneDrive, driveItem);
-            }
-
+        {            
             public static Folder Get(OneDrive oneDrive, Path folder, bool createIfNotExists)
             {
                 if (string.IsNullOrWhiteSpace(folder.Key))
@@ -69,22 +32,22 @@ namespace Cliver
                     bi = oneDrive.GetItemByLink(folder.BaseObject_LinkOrEncodedLinkOrShareId);
                     if (bi == null)
                         return null;
-                    if (folder.RelativePath == null)
+                    if (folder.RelativePath_escaped == null)
                     {
                         if (bi is Folder)
                             return (Folder)bi;
-                        throw new Exception("Path points to not a folder: " + folder);
+                        throw new Exception("Path points not to a folder: " + folder);
                     }
                     if (!(bi is Folder))
-                        throw new Exception("Base object link points to not a folder: " + folder.BaseObject_LinkOrEncodedLinkOrShareId);
+                        throw new Exception("Base object link points not to a folder: " + folder.BaseObject_LinkOrEncodedLinkOrShareId);
 
-                    return ((Folder)bi).GetFolder(folder.RelativePath, createIfNotExists);
+                    return ((Folder)bi).GetFolder(folder.RelativePath_escaped, createIfNotExists);
                 }
 
                 bi = oneDrive.GetItemByPath(Path.RootFolderId);
                 if (bi == null)
                     throw new Exception("Could not get the root folder.");
-                return ((Folder)bi).GetFolder(folder.RelativePath, createIfNotExists);
+                return ((Folder)bi).GetFolder(folder.RelativePath_escaped, createIfNotExists);
             }
 
             public Folder GetFolder(string relativePath, bool createIfNotExists)
