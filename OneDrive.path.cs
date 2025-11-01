@@ -118,10 +118,10 @@ namespace Cliver
             //public string BaseObject_LinkOrShareId_encoded { get; private set; }
             //public string BaseObject_ShareId { get; private set; }
 
-            /// <summary>
-            /// Must be used only by Graph methods
-            /// </summary>
-            public string RelativePath_escaped { get; private set; }
+            ///// <summary>
+            ///// Must be used only by Graph methods
+            ///// </summary>
+            //public string RelativePath_escaped { get; private set; }
             public string RelativePath { get; private set; }
             public string Key { get; private set; }
 
@@ -160,7 +160,7 @@ namespace Cliver
             {
                 if (string.IsNullOrEmpty(pathKey))
                 {
-                    initialize(null, null, false);
+                    initialize(null, null);
                     return;
                 }
                 string[] ps = Regex.Split(pathKey, @"\\\\");
@@ -174,17 +174,17 @@ namespace Cliver
                 }
                 if (ps.Length > 2)
                     throw new Exception2(nameof(pathKey) + " has more than 2 parts: " + "'" + pathKey + "'");
-                initialize(ps[0], ps[1], false);
+                initialize(ps[0], ps[1]);
             }
 
-            public Path(string baseObject_LinkOrEncodedLinkOrShareId, string relativePath, bool escapeRelativePath = true)
+            public Path(string baseObject_LinkOrEncodedLinkOrShareId, string relativePath)
             {
-                initialize(baseObject_LinkOrEncodedLinkOrShareId, relativePath, escapeRelativePath);
+                initialize(baseObject_LinkOrEncodedLinkOrShareId, relativePath);
             }
 
             public const string RootFolderId = "/";
 
-            void initialize(string baseObject_LinkOrEncodedLinkOrShareId, string relativePath, bool escapeRelativePath)
+            void initialize(string baseObject_LinkOrEncodedLinkOrShareId, string relativePath)
             {
                 //if (relativeFolderPath.Contains(DirectorySeparatorChar))
                 //    throw new Exception2(nameof(GoogleDrive.Path) + " cannot contain " + DirectorySeparatorChar);
@@ -203,10 +203,10 @@ namespace Cliver
                 if (relativePath != null)
                 {
                     RelativePath = Regex.Replace(relativePath, @"\\{2,}", @"\").Trim().Trim('\\');
-                    RelativePath_escaped = escapeRelativePath ? GetEscapedPath(RelativePath) : RelativePath;
+                    //RelativePath_escaped = escapeRelativePath ? GetEscapedPath(RelativePath) : RelativePath;
                 }
                 //Key = BaseObject_ShareId + @"\\" + RelativePath;
-                Key = baseObject_LinkOrEncodedLinkOrShareId + @"\\" + RelativePath_escaped;
+                Key = baseObject_LinkOrEncodedLinkOrShareId + @"\\" + RelativePath;
             }
 
             public Path GetDescendant(string relativeDescendantPath)
@@ -270,126 +270,12 @@ namespace Cliver
             return "u!" + base64Value.TrimEnd('=').Replace('/', '_').Replace('+', '-');
         }
 
-        //public string GetLink(Path folderOrFile)
-        //{
-        //    if (IsObjectLink(folderOrFile.BaseObject_LinkOrEncodedLinkOrShareId))
-        //        return folderOrFile.BaseObject_LinkOrEncodedLinkOrShareId;
-
-        //    return getObject(folderOrFile)?.Id;
-        //}
-
-        //Item getObject(Path folderOrFile, string fields = "id, webViewLink")
-        //{
-        //    if (!cache.Get(folderOrFile, out Item @object))
-        //    {
-        //        if (folderOrFile.SplitRelativePath(out string rf, out string folderOrFileName))
-        //        {
-        //            Item parentFolder = GetFolder(new Path(folderOrFile.BaseObject_ShareId, rf), GettingMode.GetLatestExistingOnly, fields);
-        //            if (parentFolder == null)
-        //                return null;
-        //            @object = FindObjects(new SearchFilter { Name = folderOrFileName, ParentId = parentFolder.Id }, fields).FirstOrDefault();
-        //        }
-        //        else
-        //            @object = GetObject(folderOrFile.BaseObject_ShareId, fields);
-        //        cache.Set(folderOrFile, @object);
-        //    }
-        //    return @object;
-        //}
-
-        //public Item GetItem(Path item)
-        //{
-        //    if (!cache.Get(item, out Item @object))
-        //    {
-        //        if (item.SplitRelativePath(out string parentRelativeFolderPath, out string fileName))
-        //        {
-        //            Item parentFolder = GetFolder(new Path(item.BaseObject_ShareId, parentRelativeFolderPath), GettingMode.GetLatestExistingOnly);
-        //            if (parentFolder == null)
-        //                return null;
-        //            SearchFilter sf = new SearchFilter { IsFolder = false, ParentId = parentFolder.Id, Name = fileName };
-        //            IEnumerable<Item> fs = FindObjects(sf, fields);
-        //            @object = fs.FirstOrDefault();
-        //        }
-        //        else
-        //            @object = GetObject(file.BaseObject_ShareId, fields);
-        //        cache.Set(file, @object);
-        //    }
-        //    return @object;
-        //}
-
-        //public File GetFile(Path remoteFile, bool createIfNotExists)
-        //{
-        //    return File.New(this, remoteFile, createIfNotExists);
-        //}
-
-        //public File UploadFile(string localFile, Path remotefile, string contentType = null, bool updateExisting = true)
-        //{
-        //    if (!remotefile.SplitRelativePath(out string remoteRelativeFolderPath, out string fileName)
-        //        && IsObjectLink(remotefile.BaseObject_LinkOrEncodedLinkOrShareId)
-        //        )
-        //        return UpdateFile(localFile, remotefile.BaseObject_ShareId, PathRoutines.GetFileName(localFile), contentType, fields);
-
-        //    string folderId = GetFolder(new Path(remotefile.BaseObject_ShareId, remoteRelativeFolderPath), GettingMode.GetLatestExistingOrCreate).Id;
-
-        //    if (string.IsNullOrWhiteSpace(fileName))
-        //        fileName = PathRoutines.GetFileName(localFile);
-        //    File file = new File
-        //    {
-        //        Name = fileName,
-        //        //MimeType = getMimeType(localFile), 
-        //        //Description=,
-        //    };
-        //    using (FileStream fileStream = new FileStream(localFile, FileMode.Open, FileAccess.Read))
-        //    {
-        //        if (updateExisting)
-        //        {
-        //            SearchFilter sf = new SearchFilter { IsFolder = false, ParentId = folderId, Name = file.Name };
-        //            IEnumerable<Item> fs = FindObjects(sf, fields);
-        //            Item f = fs.FirstOrDefault();
-        //            if (f != null)
-        //            {
-        //                FilesResource.UpdateMediaUpload updateMediaUpload = Service.Files.Update(file, f.Id, fileStream, contentType != null ? contentType : getMimeType(localFile));
-        //                updateMediaUpload.Fields = getProperFields(fields);
-        //                Google.Apis.Upload.IUploadProgress uploadProgress = updateMediaUpload.Upload();
-        //                if (uploadProgress.Status == Google.Apis.Upload.UploadStatus.Failed)
-        //                    throw new Exception("Uploading file failed.", uploadProgress.Exception);
-        //                if (uploadProgress.Status != Google.Apis.Upload.UploadStatus.Completed)
-        //                    throw new Exception("Uploading file has not been completed.");
-        //                return updateMediaUpload.ResponseBody;
-        //            }
-        //        }
-        //        {
-        //            file.Parents = new List<string>
-        //            {
-        //                folderId
-        //            };
-        //            FilesResource.CreateMediaUpload createMediaUpload = Service.Files.Create(file, fileStream, contentType != null ? contentType : getMimeType(localFile));
-        //            createMediaUpload.Fields = getProperFields(fields);
-        //            Google.Apis.Upload.IUploadProgress uploadProgress = createMediaUpload.Upload();
-        //            if (uploadProgress.Status == Google.Apis.Upload.UploadStatus.Failed)
-        //                throw new Exception("Uploading file failed.", uploadProgress.Exception);
-        //            if (uploadProgress.Status != Google.Apis.Upload.UploadStatus.Completed)
-        //                throw new Exception("Uploading file has not been completed.");
-        //            return createMediaUpload.ResponseBody;
-        //        }
-        //    }
-        //}
-        //static string getMimeType(string fileName)
-        //{
-        //    string mimeType = "application/unknown";
-        //    string ext = System.IO.Path.GetExtension(fileName).ToLower();
-        //    Microsoft.Win32.RegistryKey regKey = Microsoft.Win32.Registry.ClassesRoot.OpenSubKey(ext);
-        //    if (regKey != null && regKey.GetValue("Content Type") != null)
-        //        mimeType = regKey.GetValue("Content Type").ToString();
-        //    return mimeType;
-        //}
-
-        //public File DownloadFile(Path remoteFile, string localFile)
-        //{
-        //    File file = GetFile(remoteFile);
-        //    if (file == null)
-        //        return null;
-        //    DownloadFile(file.Id, localFile);
-        //    return file;
-        //}
+        public static string GetParentPath(string relativePath, bool removeTrailingSeparator = true)
+        {
+            string fd = Regex.Replace(relativePath, @"[^\\\/]*$", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            if (removeTrailingSeparator)
+                fd = fd.TrimEnd('\\', '/');
+            return fd;
+        }
     }
 }

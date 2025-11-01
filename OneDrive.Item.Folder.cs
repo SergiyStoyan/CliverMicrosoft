@@ -32,7 +32,7 @@ namespace Cliver
                     bi = oneDrive.GetItemByLink(folder.BaseObject_LinkOrEncodedLinkOrShareId);
                     if (bi == null)
                         return null;
-                    if (folder.RelativePath_escaped == null)
+                    if (folder.RelativePath == null)
                     {
                         if (bi is Folder)
                             return (Folder)bi;
@@ -41,13 +41,13 @@ namespace Cliver
                     if (!(bi is Folder))
                         throw new Exception("Base object link points not to a folder: " + folder.BaseObject_LinkOrEncodedLinkOrShareId);
 
-                    return ((Folder)bi).GetFolder(folder.RelativePath_escaped, createIfNotExists);
+                    return ((Folder)bi).GetFolder(folder.RelativePath, createIfNotExists);
                 }
 
                 bi = oneDrive.GetItemByPath(Path.RootFolderId);
                 if (bi == null)
                     throw new Exception("Could not get the root folder.");
-                return ((Folder)bi).GetFolder(folder.RelativePath_escaped, createIfNotExists);
+                return ((Folder)bi).GetFolder(folder.RelativePath, createIfNotExists);
             }
 
             public Folder GetFolder(string relativePath, bool createIfNotExists)
@@ -55,12 +55,27 @@ namespace Cliver
                 if (string.IsNullOrWhiteSpace(relativePath))
                     throw new Exception("Path is empty.");
 
+                string escapedRelativePath = GetEscapedPath(relativePath);//(!)the API always tries to unescape
+
                 //DriveItem di = Task.Run(() =>
                 //{
                 //    return DriveItemRequestBuilder.ItemWithPath(relativePath).GetAsync();
                 //}).Result;
-                DriveItem di = DriveItemRequestBuilder.ItemWithPath(relativePath).GetAsync().Result;
-
+                DriveItem di = get();
+                DriveItem get()
+                {
+                    try
+                    {
+                        return DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync().Result;
+                    }
+                    catch (Exception e)
+                    {
+                        for (; e != null; e = e.InnerException)
+                            if (e is /*Microsoft.Graph.ServiceException*/ Microsoft.Kiota.Abstractions.ApiException es && es?.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
+                                return null;
+                        throw;
+                    }
+                }
                 if (di != null)
                 {
                     Item item = New(OneDrive, di);
@@ -76,7 +91,7 @@ namespace Cliver
                 {
                     di = new DriveItem
                     {
-                        Name = relativePath,
+                        Name = escapedRelativePath,
                         Folder = new Microsoft.Graph.Models.Folder
                         {
                         },
@@ -95,14 +110,6 @@ namespace Cliver
                 return GetFolder(m.Groups[1].Value, createIfNotExists).GetFolder(m.Groups[2].Value, createIfNotExists);
             }
 
-            public static string GetParentPath(string remotePath, bool removeTrailingSeparator = true)
-            {
-                string fd = Regex.Replace(remotePath, @"[^\\\/]*$", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-                if (removeTrailingSeparator)
-                    fd = fd.TrimEnd('\\', '/');
-                return fd;
-            }
-
             internal Folder(OneDrive oneDrive, DriveItem driveItem) : base(oneDrive, driveItem)
             {
                 //if (driveItem.Folder == null)
@@ -113,13 +120,16 @@ namespace Cliver
             {
                 if (remoteFileRelativePath == null)
                     remoteFileRelativePath = PathRoutines.GetFileName(localFile);
+
+                string escapedRelativePath = GetEscapedPath(remoteFileRelativePath);//(!)the API always tries to unescape
+
                 using (Stream s = System.IO.File.OpenRead(localFile))
                 {
                     //DriveItem driveItem = Task.Run(() =>
                     //{
                     //    return DriveItemRequestBuilder.ItemWithPath(remoteFileRelativePath).Content.PutAsync(s);
                     //}).Result;
-                    DriveItem driveItem = DriveItemRequestBuilder.ItemWithPath(remoteFileRelativePath).Content.PutAsync(s).Result;
+                    DriveItem driveItem = DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).Content.PutAsync(s).Result;
                     return new File(OneDrive, driveItem);
                 }
             }
@@ -187,9 +197,9 @@ namespace Cliver
                 //        }
                 //        );
                 //}).Result.Value;
-                    string f = "folder ne null";
-                    if (filter != null)
-                        f = "(" + f + ") and (" + filter + ")";
+                string f = "folder ne null";
+                if (filter != null)
+                    f = "(" + f + ") and (" + filter + ")";
                 var i = DriveItemRequestBuilder.Children.GetAsync(
                         rc =>
                         {
@@ -218,17 +228,18 @@ namespace Cliver
                 //        return null;
                 //}
 
+                string escapedRelativePath = GetEscapedPath(remoteFileRelativePath);//(!)the API always tries to unescape
+
                 DriveItem di = null;
                 try
                 {
-                    di = DriveItemRequestBuilder.ItemWithPath(remoteFileRelativePath).GetAsync().Result;
+                    di = DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync().Result;
                 }
                 catch (Exception e)
                 {
-                    for (; e != null; e = e.InnerException)  
+                    for (; e != null; e = e.InnerException)
                         if (e is /*Microsoft.Graph.ServiceException*/ Microsoft.Kiota.Abstractions.ApiException es && es?.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
                             return null;
-                    
                     throw;
                 }
                 if (di == null)

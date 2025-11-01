@@ -58,15 +58,17 @@ namespace Cliver
         }
         Drive _UserDrive;
 
-        public Item GetItemByPath(string path)
+        public Item GetItemByPath(string relativePath)
         {
+            string escapedRelativePath = GetEscapedPath(relativePath);//(!)the API always tries to unescape
+
             //DriveItem driveItem = Task.Run(() =>
             //{
             //    return Client.Drives[UserDrive.Id].Root.ItemWithPath(path).GetAsync();
             //}).Result;
             //return Item.New(this, driveItem);
 
-            DriveItem driveItem = Client.Drives[UserDrive.Id].Root.ItemWithPath(path).GetAsync().Result;
+            DriveItem driveItem = Client.Drives[UserDrive.Id].Root.ItemWithPath(escapedRelativePath).GetAsync().Result;
             return Item.New(this, driveItem);
         }
 
@@ -216,7 +218,7 @@ namespace Cliver
             string relativeParentFolder;
             if (itemPath.BaseObject_LinkOrEncodedLinkOrShareId == null)
             {
-                SplitRelativePath(itemPath.RelativePath_escaped, out relativeParentFolder, out folderOrFileName);
+                SplitRelativePath(itemPath.RelativePath, out relativeParentFolder, out folderOrFileName);
                 if (relativeParentFolder != null)
                     return GetFolder(new Path(null, relativeParentFolder), createIfNotExists);
                 return null;//parent of Root
@@ -229,7 +231,7 @@ namespace Cliver
             }
             if (!(i is Folder))
                 throw new Exception("Link points not to a folder: " + itemPath.BaseObject_LinkOrEncodedLinkOrShareId);
-            SplitRelativePath(itemPath.RelativePath_escaped, out relativeParentFolder, out folderOrFileName);
+            SplitRelativePath(itemPath.RelativePath, out relativeParentFolder, out folderOrFileName);
             if (relativeParentFolder != null)
                 return ((Folder)i).GetFolder(relativeParentFolder, createIfNotExists);
             return (Folder)i;

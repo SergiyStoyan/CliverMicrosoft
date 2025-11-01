@@ -39,14 +39,14 @@ namespace Cliver
                     Item bi = oneDrive.GetItemByLink(item.BaseObject_LinkOrEncodedLinkOrShareId);
                     if (bi == null)
                         return null;
-                    if (item.RelativePath_escaped == null)
+                    if (item.RelativePath == null)
                         return bi;
                     if (!(bi is Folder))
                         throw new Exception("Base object link points not to a folder: " + item.BaseObject_LinkOrEncodedLinkOrShareId);
-                    i = bi.Get(item.RelativePath_escaped);
+                    i = bi.Get(item.RelativePath);
                 }
                 else
-                    i = oneDrive.GetItemByPath(item.RelativePath_escaped);
+                    i = oneDrive.GetItemByPath(item.RelativePath);
                 return i;
             }
 
@@ -133,7 +133,7 @@ namespace Cliver
                         Scope = linkScopes.ToString(),
                         RetainInheritedPermissions = retainInheritedPermissions,
                     };
-                    Permission p = OneDrive.Client.Drives[DriveId].Items[ItemId].CreateLink.PostAsync(requestBody).Result;
+                    Permission p = DriveItemRequestBuilder.CreateLink.PostAsync(requestBody).Result;
                     return p.Link;
                 }
             }
@@ -272,7 +272,10 @@ namespace Cliver
                 //{
                 //    return DriveItemRequestBuilder.ItemWithPath(relativePath).GetAsync();
                 //}).Result;
-                var di = DriveItemRequestBuilder.ItemWithPath(relativePath).GetAsync().Result;
+
+                string escapedRelativePath = GetEscapedPath(relativePath);//(!)the API always tries to unescape
+
+                var di = DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync().Result;
                 if (di == null)
                     return null;
                 return New(OneDrive, di);
