@@ -218,10 +218,6 @@ namespace Cliver
                 //        return null;
                 //}
 
-                //DriveItem di = Task.Run(() =>
-                //{
-                //    return DriveItemRequestBuilder.ItemWithPath(remoteFileRelativePath).GetAsync();
-                //}).Result;
                 DriveItem di = null;
                 try
                 {
@@ -229,9 +225,11 @@ namespace Cliver
                 }
                 catch (Exception e)
                 {
-                    var es = e as Microsoft.Graph.ServiceException;
-                    if (es?.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
-                        return null;
+                    for (; e != null; e = e.InnerException)  
+                        if (e is /*Microsoft.Graph.ServiceException*/ Microsoft.Kiota.Abstractions.ApiException es && es?.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
+                            return null;
+                    
+                    throw;
                 }
                 if (di == null)
                     return null;

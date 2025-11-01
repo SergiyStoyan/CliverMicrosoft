@@ -56,7 +56,7 @@ namespace Cliver
                     catch (Exception e)
                     {
                         for (; e != null; e = e.InnerException)
-                            if (e is Microsoft.Graph.ServiceException ex && retriableHttpCodes.Contains((System.Net.HttpStatusCode)ex.ResponseStatusCode))
+                            if (e is /*Microsoft.Graph.ServiceException*/ Microsoft.Kiota.Abstractions.ApiException ex && retriableHttpCodes.Contains((System.Net.HttpStatusCode)ex.ResponseStatusCode))
                             {
                                 Log.Warning2("Retrying...\r\n" + logMessage, e);
                                 return null;

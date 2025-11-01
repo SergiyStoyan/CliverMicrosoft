@@ -155,6 +155,7 @@ namespace Cliver
         //            for (Exception ee = e; ee != null; ee = e.InnerException)
         //            {
         //                Microsoft.Graph.ServiceException se = ee as Microsoft.Graph.ServiceException;
+        ///*Microsoft.Graph.ServiceException*/        Microsoft.Kiota.Abstractions.ApiException
         //                if (se?.Error.Code == "itemNotFound")
         //                    throw new Exception("User " + User.DisplayName + " cannot change permissions of the item[id=" + itemId + "] because it is not owned.", e);
         //            }
