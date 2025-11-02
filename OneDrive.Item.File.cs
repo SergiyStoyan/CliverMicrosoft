@@ -71,26 +71,33 @@ namespace Cliver
             /// </summary>
             /// <returns></returns>
             /// <exception cref="Exception"></exception>
-            public object GetCheckedOutUser()
+            public object GetCheckedOutUser()//To find the specific user, you must use the Microsoft Graph Activity Logs with a query like KQL or Log Analytics
+                                             //to find the checkout activity for that specific file, as there is no direct API to query for the user who checked out a file. 
             {
-                if (SharepointIds == null)
-                    throw new Exception("SharepointIds are NULL while the DriveItem status is CheckedOut.");
-                //check if the item is checkedout by someone else
-                var ls = OneDrive.Client.Sites[SharepointIds.SiteId].GetAsync().Result;//error: Unable to find target address
+                //if (SharepointIds == null)
+                //    throw new Exception("SharepointIds are NULL while the DriveItem status is CheckedOut.");
+                var di = GetDriveItem("id", "activities");
+                /* "action": {
+                "checkout": { }
+            },
+            "actor": {
+                "user": {
+                    "email": "XXX@XXX",
+                    "displayName": "vladimir",
+                    "self": {},
+                    "userPrincipalName": "XXX@XXX
+                }
+            },*/
+                JObject activities = new JObject(di.AdditionalData);
+                JObject a = (JObject)activities["action"];
+                if (a["action"]?["checkout"] == null)
+                    return null;
+                return (JObject)activities["actor"]?["user"];
+                //Log.Debug0(fieldValueSet.AdditionalData.ToStringByJson());
 
-                FieldValueSet fieldValueSet = OneDrive.Client.Sites[SharepointIds.SiteId].Lists[ListItem.Id].Items[ItemId].Fields.GetAsync(
-                    rc =>
-                    {
-                        rc.QueryParameters.Expand = new string[] { "CheckoutUser" };
-                    }
-                ).Result;
-
-                Log.Debug0(fieldValueSet.AdditionalData.ToStringByJson());
-
-                object checkoutUser = fieldValueSet.AdditionalData["CheckoutUser"];
-                if (checkoutUser == null)
-                    throw new Exception("Could not get checkoutUser for the DriveItem.");
-                return checkoutUser;
+                //object checkoutUser = fieldValueSet.AdditionalData["CheckoutUser"];
+                //if (checkoutUser == null)
+                //    throw new Exception("Could not get checkoutUser for the DriveItem.");
             }
 
             /// <summary>

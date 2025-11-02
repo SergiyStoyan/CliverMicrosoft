@@ -147,7 +147,9 @@ namespace Cliver
                 return DriveItemRequestBuilder.Children.GetAsync(
                     rc =>
                     {
-                        rc.Headers["Prefer"] = new string[] { "apiversion = 2.1" };//supports Filter
+                        rc.Headers["Prefer"] = new string[] { "apiversion = 2.1", //supports Filter
+                            "TryFilterLastModifiedDateTimeTimeWarningMayFailRandomly", //supports filtering by lastModifiedDateTime
+                        };
                         rc.QueryParameters.Filter = filter;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
                     }
                 ).Result.Value;
