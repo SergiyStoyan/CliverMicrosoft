@@ -23,6 +23,8 @@ namespace Cliver
             public static File Get(OneDrive oneDrive, Path file)
             {
                 Item i = Item.Get(oneDrive, file);
+                if (i == null)
+                    return null;
                 if (i is File)
                     return (File)i;
                 throw new Exception("Path points not to a file: " + file);
@@ -208,7 +210,7 @@ namespace Cliver
                 {
                     using (var fileStream = System.IO.File.Create(localFile))
                     {
-                        s.Seek(0, SeekOrigin.Begin);
+                        //s.Seek(0, SeekOrigin.Begin);!!!not supported
                         s.CopyTo(fileStream);
                     }
                 }

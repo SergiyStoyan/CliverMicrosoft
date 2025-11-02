@@ -24,6 +24,8 @@ namespace Cliver
         {
             public static Item New(OneDrive oneDrive, DriveItem driveItem)
             {
+                if (driveItem == null)
+                    return null;
                 if (driveItem.File != null)
                     return new File(oneDrive, driveItem);
                 if (driveItem.Folder != null)
@@ -36,7 +38,7 @@ namespace Cliver
                 Item i = null;
                 if (item.BaseObject_LinkOrEncodedLinkOrShareId != null)
                 {
-                    Item bi = oneDrive.GetItemByLink(item.BaseObject_LinkOrEncodedLinkOrShareId);
+                    Item bi = oneDrive.GetItem(item.BaseObject_LinkOrEncodedLinkOrShareId);
                     if (bi == null)
                         return null;
                     if (item.RelativePath == null)
@@ -46,7 +48,7 @@ namespace Cliver
                     i = bi.Get(item.RelativePath);
                 }
                 else
-                    i = oneDrive.GetItemByPath(item.RelativePath);
+                    i = oneDrive.GetItemByRootPath(item.RelativePath);
                 return i;
             }
 
@@ -132,7 +134,7 @@ namespace Cliver
                 get
                 {
                     if (viewLink == null)
-                        viewLink = GetLink(LinkRoles.view).ToString();
+                        viewLink = GetLink(LinkRoles.view).WebUrl;
                     return viewLink;
                 }
             }
@@ -151,12 +153,12 @@ namespace Cliver
 
             public DriveItem GetDriveItem(string select, string expand = null)
             {
-                return GetDriveItem(select.Split(','), expand.Split(','));
+                return GetDriveItem(select?.Split(','), expand?.Split(','));
             }
 
             public DriveItem GetRootDriveItem()
             {
-                return OneDrive.Client.Drives[DriveId].Root.GetAsync().Result;
+                return OneDrive.GetRootDriveItem(DriveId);
             }
 
             public Folder GetParentFolder(bool refresh = true)
@@ -165,9 +167,6 @@ namespace Cliver
                     DriveItem.ParentReference = GetDriveItem("ParentReference").ParentReference;
 
                 DriveItem parentDriveItem = OneDrive.Client.Drives[DriveId].Items[DriveItem.ParentReference.Id].GetAsync().Result;
-
-                if (parentDriveItem == null)
-                    return null;
                 return (Folder)New(OneDrive, parentDriveItem);
             }
 
@@ -213,7 +212,6 @@ namespace Cliver
             public IEnumerable<Item> Search(string query)
             {
                 var driveItems = DriveItemRequestBuilder.SearchWithQ(query).GetAsSearchWithQGetResponseAsync().Result;
-
                 foreach (DriveItem item in driveItems.Value)
                     yield return New(OneDrive, item);
             }
@@ -233,9 +231,18 @@ namespace Cliver
             {
                 string escapedRelativePath = GetEscapedPath(relativePath);//(!)the API always tries to unescape
 
-                var di = DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync().Result;
-                if (di == null)
-                    return null;
+                DriveItem di = null;
+                try
+                {
+                    di = DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync().Result;
+                }
+                catch (Exception e)
+                {
+                    for (; e != null; e = e.InnerException)
+                        if (e is /*Microsoft.Graph.ServiceException*/ Microsoft.Kiota.Abstractions.ApiException ex && (int)System.Net.HttpStatusCode.NotFound == ex.ResponseStatusCode)
+                            return null;
+                    throw;
+                }
                 return New(OneDrive, di);
             }
         }

@@ -84,22 +84,22 @@ namespace Cliver
         //    return @object;
         //}
 
-        //class Cache
-        //{
-        //    public bool Get(Path path, out Item @object)
-        //    {
-        //        return paths2object.TryGetValue(path.Key, out @object);
-        //    }
+        class Cache
+        {
+            public bool Get(Path path, out Item @object)
+            {
+                return paths2object.TryGetValue(path.Key, out @object);
+            }
 
-        //    public void Set(Path path, Item @object)
-        //    {
-        //        if (@object != null)
-        //            paths2object[path.Key] = @object;
-        //    }
+            public void Set(Path path, Item @object)
+            {
+                if (@object != null)
+                    paths2object[path.Key] = @object;
+            }
 
-        //    Dictionary<string, Item> paths2object = new Dictionary<string, Item>();
-        //}
-        //readonly Cache cache = new Cache();
+            Dictionary<string, Item> paths2object = new Dictionary<string, Item>();
+        }
+        readonly Cache cache = new Cache();
 
         public class Path
         {
@@ -175,10 +175,8 @@ namespace Cliver
 
             void initialize(string baseObject_LinkOrEncodedLinkOrShareId, string relativePath)
             {
-                //if (relativeFolderPath.Contains(DirectorySeparatorChar))
-                //    throw new Exception2(nameof(GoogleDrive.Path) + " cannot contain " + DirectorySeparatorChar);
-                if (!string.IsNullOrEmpty(baseObject_LinkOrEncodedLinkOrShareId) && Regex.IsMatch(baseObject_LinkOrEncodedLinkOrShareId, @"\s|\\"))
-                    throw new Exception2("Parameter " + nameof(baseObject_LinkOrEncodedLinkOrShareId) + " is not a google link: " + "'" + baseObject_LinkOrEncodedLinkOrShareId + "'");
+                if (!IsLinkOneDrive(baseObject_LinkOrEncodedLinkOrShareId))
+                    throw new Exception2("Parameter " + nameof(baseObject_LinkOrEncodedLinkOrShareId) + " is not a OneDrive link: " + "'" + baseObject_LinkOrEncodedLinkOrShareId + "'");
                 if (string.IsNullOrEmpty(baseObject_LinkOrEncodedLinkOrShareId))
                 {
                     //BaseObject_ShareId = RootFolderId;
@@ -258,7 +256,7 @@ namespace Cliver
         /// <returns></returns>
         static public string GetEncodedLinkOrShareId(string linkOrEncodedLinkOrShareId)
         {
-            if (Regex.IsMatch(linkOrEncodedLinkOrShareId, @"^(u|s)\!"))
+            if (Regex.IsMatch(linkOrEncodedLinkOrShareId, @"^\s*(u|s)\!"))
                 return linkOrEncodedLinkOrShareId;
             string base64Value = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(linkOrEncodedLinkOrShareId));
             return "u!" + base64Value.TrimEnd('=').Replace('/', '_').Replace('+', '-');
@@ -270,6 +268,21 @@ namespace Cliver
             if (removeTrailingSeparator)
                 fd = fd.TrimEnd('\\', '/');
             return fd;
+        }
+
+        /// <summary>
+        /// Provides argument for Client.Shares[shareIdOrEncodedSharingUrl].
+        /// Expected to work for links of any form:
+        /// https://onedrive.live.com/redir?resid=1231244193912!12&authKey=1201919!12921!1
+        /// https://onedrive.live.com/?cid=ACBC822AFFB88213&id=ACBC822AFFB88213%21102&parId=root&o=OneUp
+        /// https://1drv.ms/x/s!AhOCuP8qgrysblVFtEANPUBlBu4
+        /// Encoded link or shareId is retruned unchanged.
+        /// </summary>
+        /// <param name="linkOrEncodedLinkOrShareId"></param>
+        /// <returns></returns>
+        public static bool IsLinkOneDrive(string linkOrEncodedLinkOrShareId)
+        {
+            return Regex.IsMatch(linkOrEncodedLinkOrShareId, @"^\s*(https\://(onedrive\.live\.com|1drv\.ms)[\/\?]|u!)", RegexOptions.IgnoreCase);
         }
     }
 }

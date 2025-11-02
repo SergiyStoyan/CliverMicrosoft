@@ -51,42 +51,17 @@ namespace Cliver
             get
             {
                 if (_UserDrive != null)
-                    _UserDrive = Client.Me.Drive.GetAsync().Result;
+                    _UserDrive = Client.Users[User.Id].Drive.GetAsync().Result;
                 return _UserDrive;
             }
         }
         Drive _UserDrive;
 
-        public Item GetItemByPath(string relativePath)
+
+        public DriveItem GetRootDriveItem(string driveId)
         {
-            string escapedRelativePath = GetEscapedPath(relativePath);//(!)the API always tries to unescape
-
-            DriveItem driveItem = Client.Drives[UserDrive.Id].Root.ItemWithPath(escapedRelativePath).GetAsync().Result;
-            return Item.New(this, driveItem);
+            return Client.Drives[driveId].Root.GetAsync().Result;
         }
-
-        /// <summary>
-        /// It works for either shared or not shared items.
-        /// Expected to work for links of any form:
-        /// https://onedrive.live.com/redir?resid=1231244193912!12&authKey=1201919!12921!1
-        /// https://onedrive.live.com/?cid=ACBC822AFFB88213&id=ACBC822AFFB88213%21102&parId=root&o=OneUp
-        /// https://1drv.ms/x/s!AhOCuP8qgrysblVFtEANPUBlBu4
-        /// </summary>
-        /// <param name="linkOrEncodedLinkOrShareId"></param>
-        /// <returns></returns>
-        public Item GetItemByLink(string linkOrEncodedLinkOrShareId)
-        {
-            DriveItem driveItem = Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync().Result;
-            return Item.New(this, driveItem);
-        }
-
-        //public DriveItem GetRootDriveItem()
-        //{
-        //    return Task.Run(() =>
-        //    {
-        //        return Client.Me.Drive[DriveId].Root.GetAsync();
-        //    }).Result;
-        //}
 
         /// <summary>
         /// !!!when 'Can view' a user still can hange the file! Probabaly it is due to 'anybody with this link can edit the file'
@@ -153,21 +128,56 @@ namespace Cliver
         //    }
         //}
 
+        /// <summary>
+        /// It works for either shared or not shared items.
+        /// Expected to work for links of any form:
+        /// https://onedrive.live.com/redir?resid=1231244193912!12&authKey=1201919!12921!1
+        /// https://onedrive.live.com/?cid=ACBC822AFFB88213&id=ACBC822AFFB88213%21102&parId=root&o=OneUp
+        /// https://1drv.ms/x/s!AhOCuP8qgrysblVFtEANPUBlBu4
+        /// </summary>
+        /// <param name="linkOrEncodedLinkOrShareId"></param>
+        /// <returns></returns>
+        public Item GetItem(string linkOrEncodedLinkOrShareId)
+        {
+            if (string.IsNullOrWhiteSpace(linkOrEncodedLinkOrShareId))
+                throw new Exception("linkOrEncodedLinkOrShareId is not specified.");
+            DriveItem di = null; //cache.Get(new Path(linkOrEncodedLinkOrShareId, null),)
+            try
+            {
+                di = Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync().Result;
+            }
+            catch (Exception e)
+            {
+                for (; e != null; e = e.InnerException)
+                    if (e is /*Microsoft.Graph.ServiceException*/ Microsoft.Kiota.Abstractions.ApiException ex && (int)System.Net.HttpStatusCode.NotFound == ex.ResponseStatusCode)
+                        return null;
+                throw;
+            }
+            return Item.New(this, di);
+        }
+
+        public Item GetItemByRootPath(string rootPath)
+        {
+            string escapedRelativePath = GetEscapedPath(rootPath);//(!)the API always tries to unescape
+            DriveItem di = null;
+            try
+            {
+                di = Client.Drives[UserDrive.Id].Root.ItemWithPath(escapedRelativePath).GetAsync().Result;
+            }
+            catch (Exception e)
+            {
+                for (; e != null; e = e.InnerException)
+                    if (e is /*Microsoft.Graph.ServiceException*/ Microsoft.Kiota.Abstractions.ApiException ex && (int)System.Net.HttpStatusCode.NotFound == ex.ResponseStatusCode)
+                        return null;
+                throw;
+            }
+            return Item.New(this, di);
+        }
+
         public Item GetItem(Path item)
         {
             return Item.Get(this, item);
         }
-
-        //public IEnumerable<Item> Search(string pattern)
-        //{
-        //    IDriveSearchCollectionPage driveItems = Task.Run(() =>
-        //    {
-        //        return Client.Me.Drive.Search(pattern).Request().GetAsync();
-        //    }).Result;
-
-        //    foreach (DriveItem item in driveItems)
-        //        yield return Item.New(this, item);
-        //}
 
         public Folder GetFolder(Path folder, bool createIfNotExists)
         {
@@ -176,7 +186,7 @@ namespace Cliver
 
         public Folder GetFolder(string linkOrEncodedLinkOrShareId, bool createIfNotExists)
         {
-            return GetFolder(new Path(linkOrEncodedLinkOrShareId), createIfNotExists);
+            return GetFolder(new Path(linkOrEncodedLinkOrShareId, null), createIfNotExists);
         }
 
         public File GetFile(Path file)
@@ -186,7 +196,7 @@ namespace Cliver
 
         public File GetFile(string linkOrEncodedLinkOrShareId)
         {
-            return GetFile(new Path(linkOrEncodedLinkOrShareId));
+            return GetFile(new Path(linkOrEncodedLinkOrShareId, null));
         }
 
         public File UploadFile(string localFile, Path remoteFile)
@@ -197,7 +207,19 @@ namespace Cliver
 
         public File UploadFile(string localFile, string linkOrEncodedLinkOrShareId)
         {
-            return UploadFile(localFile, new Path(linkOrEncodedLinkOrShareId));
+            return UploadFile(localFile, new Path(linkOrEncodedLinkOrShareId, null));
+        }
+
+        public File DownloadFile(Path remoteFile, string localFile)
+        {
+            File f = File.Get(this, remoteFile);
+            f?.Download(localFile);
+            return f;
+        }
+
+        public File DownloadFile(string linkOrEncodedLinkOrShareId, string localFile)
+        {
+            return DownloadFile(new Path(linkOrEncodedLinkOrShareId, null), localFile);
         }
 
         public Folder GetParentFolder(Path itemPath, bool createIfNotExists, out string folderOrFileName)
@@ -222,23 +244,6 @@ namespace Cliver
             if (relativeParentFolder != null)
                 return ((Folder)i).GetFolder(relativeParentFolder, createIfNotExists);
             return (Folder)i;
-        }
-
-        public File DownloadFile(Path remoteFile, string localFile)
-        {
-            File f = File.Get(this, remoteFile);
-            f.Download(localFile);
-            return f;
-        }
-
-        public File DownloadFile(string linkOrEncodedLinkOrShareId, string localFile)
-        {
-            return DownloadFile(new Path(linkOrEncodedLinkOrShareId), localFile);
-        }
-
-        public static bool IsLinkOneDrive(string link)
-        {
-            return Regex.IsMatch(link, @"https\://(drive.google.com/drive/|1drv.ms/)", RegexOptions.IgnoreCase);
         }
     }
 }

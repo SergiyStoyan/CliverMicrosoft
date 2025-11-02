@@ -29,7 +29,7 @@ namespace Cliver
                 Item bi;
                 if (folder.BaseObject_LinkOrEncodedLinkOrShareId != null)
                 {
-                    bi = oneDrive.GetItemByLink(folder.BaseObject_LinkOrEncodedLinkOrShareId);
+                    bi = oneDrive.GetItem(folder.BaseObject_LinkOrEncodedLinkOrShareId);
                     if (bi == null)
                         return null;
                     if (folder.RelativePath == null)
@@ -44,17 +44,41 @@ namespace Cliver
                     return ((Folder)bi).GetFolder(folder.RelativePath, createIfNotExists);
                 }
 
-                bi = oneDrive.GetItemByPath(Path.RootFolderId);
+                bi = oneDrive.GetItemByRootPath(Path.RootFolderId);
                 if (bi == null)
                     throw new Exception("Could not get the root folder.");
                 return ((Folder)bi).GetFolder(folder.RelativePath, createIfNotExists);
             }
 
+            public Item GetItem(string relativePath)
+            {
+                string escapedRelativePath = GetEscapedPath(relativePath);//(!)the API always tries to unescape
+
+                DriveItem di = null;
+                try
+                {
+                    di = DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync().Result;
+                }
+                catch (Exception e)
+                {
+                    for (; e != null; e = e.InnerException)
+                        if (e is /*Microsoft.Graph.ServiceException*/ Microsoft.Kiota.Abstractions.ApiException es && es?.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
+                            return null;
+                    throw;
+                }
+                return New(OneDrive, di);
+            }
+
+            public File GetFile(string relativePath)
+            {
+                Item i = GetItem(relativePath);
+                if (i is File)
+                    return (File)i;
+                throw new Exception("Item[relativePath='" + relativePath + "'] is not a file.");
+            }
+
             public Folder GetFolder(string relativePath, bool createIfNotExists)
             {
-                if (string.IsNullOrWhiteSpace(relativePath))
-                    throw new Exception("Path is empty.");
-
                 string escapedRelativePath = GetEscapedPath(relativePath);//(!)the API always tries to unescape
 
                 DriveItem di = get();
@@ -124,14 +148,18 @@ namespace Cliver
 
             public List<Item> GetChildren(string filter = null)
             {
-                var i = DriveItemRequestBuilder.Children.GetAsync(
-                        rc =>
-                        {
-                            rc.QueryParameters.Filter = filter;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
-                        }
-                        ).Result.Value;
+                return getChildren(filter)?.Select(a => New(OneDrive, a)).ToList();
+            }
 
-                return i?.Select(a => New(OneDrive, a)).ToList();
+            IEnumerable<DriveItem> getChildren(string filter)
+            {
+                return DriveItemRequestBuilder.Children.GetAsync(
+                    rc =>
+                    {
+                        rc.Headers["Prefer"] = new string[] { "apiversion = 2.1" };//supports Filter
+                        rc.QueryParameters.Filter = filter;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
+                    }
+                ).Result.Value;
             }
 
             public List<File> GetFiles(string filter = null)
@@ -139,15 +167,7 @@ namespace Cliver
                 string f = "file ne null";
                 if (filter != null)
                     f = "(" + f + ") and (" + filter + ")";
-                var i = DriveItemRequestBuilder.Children.GetAsync(
-                        rc =>
-                        {
-                            rc.QueryParameters.Filter = f;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
-                        }
-                    ).Result.Value;
-
-                return i?.Select(a => (File)New(OneDrive, a)).ToList();
-                //return DriveItem.Children.Where(a => a.File != null).Select(a => new File(OneDrive, a)).ToList();
+                return getChildren(f)?.Select(a => (File)New(OneDrive, a)).ToList();
             }
 
             public List<Folder> GetFolders(string filter = null)
@@ -155,38 +175,7 @@ namespace Cliver
                 string f = "folder ne null";
                 if (filter != null)
                     f = "(" + f + ") and (" + filter + ")";
-                var i = DriveItemRequestBuilder.Children.GetAsync(
-                        rc =>
-                        {
-                            rc.QueryParameters.Filter = f;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
-                        }
-                        ).Result.Value;
-
-                return i?.Select(a => (Folder)New(OneDrive, a)).ToList();
-                //return DriveItem.Children.Where(a => a.Folder != null).Select(a => new Folder(OneDrive, a)).ToList();
-            }
-
-            public File GetFile(string remoteFileRelativePath)
-            {
-                string escapedRelativePath = GetEscapedPath(remoteFileRelativePath);//(!)the API always tries to unescape
-
-                DriveItem di = null;
-                try
-                {
-                    di = DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync().Result;
-                }
-                catch (Exception e)
-                {
-                    for (; e != null; e = e.InnerException)
-                        if (e is /*Microsoft.Graph.ServiceException*/ Microsoft.Kiota.Abstractions.ApiException es && es?.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
-                            return null;
-                    throw;
-                }
-                if (di == null)
-                    return null;
-                if (di.File == null)
-                    throw new Exception("Item [remoteFileRelativePath='" + remoteFileRelativePath + "'] is not a file.");
-                return new File(OneDrive, di);
+                return getChildren(f)?.Select(a => (Folder)New(OneDrive, a)).ToList();
             }
         }
     }
