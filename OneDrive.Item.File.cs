@@ -20,12 +20,14 @@ namespace Cliver
     {
         public class File : Item
         {
-            public static File Get(OneDrive oneDrive, Path file)
+            public static File Get(OneDrive oneDrive, string linkOrEncodedLinkOrShareId)
             {
-                Item i = Item.Get(oneDrive, file);
+                Item i = Item.Get(oneDrive, linkOrEncodedLinkOrShareId);
+                if (i == null)
+                    return null;
                 if (i is File)
                     return (File)i;
-                throw new Exception("Path points not to a file: " + file);
+                throw new Exception("Link points not to a file: " + linkOrEncodedLinkOrShareId);
             }
 
             internal File(OneDrive oneDrive, DriveItem driveItem) : base(oneDrive, driveItem)
@@ -208,7 +210,7 @@ namespace Cliver
                 {
                     using (var fileStream = System.IO.File.Create(localFile))
                     {
-                        s.Seek(0, SeekOrigin.Begin);
+                        //s.Seek(0, SeekOrigin.Begin);!!!not supported
                         s.CopyTo(fileStream);
                     }
                 }

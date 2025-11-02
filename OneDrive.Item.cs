@@ -24,6 +24,8 @@ namespace Cliver
         {
             public static Item New(OneDrive oneDrive, DriveItem driveItem)
             {
+                if (driveItem == null)
+                    return null;
                 if (driveItem.File != null)
                     return new File(oneDrive, driveItem);
                 if (driveItem.Folder != null)
@@ -31,23 +33,9 @@ namespace Cliver
                 throw new Exception("Unknown DriveItem object type: " + driveItem.ToStringByJson());
             }
 
-            static public Item Get(OneDrive oneDrive, Path item)
+            static public Item Get(OneDrive oneDrive, string linkOrEncodedLinkOrShareId)
             {
-                Item i = null;
-                if (item.BaseObject_LinkOrEncodedLinkOrShareId != null)
-                {
-                    Item bi = oneDrive.GetItemByLink(item.BaseObject_LinkOrEncodedLinkOrShareId);
-                    if (bi == null)
-                        return null;
-                    if (item.RelativePath == null)
-                        return bi;
-                    if (!(bi is Folder))
-                        throw new Exception("Base object link points not to a folder: " + item.BaseObject_LinkOrEncodedLinkOrShareId);
-                    i = bi.Get(item.RelativePath);
-                }
-                else
-                    i = oneDrive.GetItemByPath(item.RelativePath);
-                return i;
+                return oneDrive.GetItem(linkOrEncodedLinkOrShareId);
             }
 
             protected Item(OneDrive oneDrive, DriveItem driveItem)
@@ -132,7 +120,7 @@ namespace Cliver
                 get
                 {
                     if (viewLink == null)
-                        viewLink = GetLink(LinkRoles.view).ToString();
+                        viewLink = GetLink(LinkRoles.view).WebUrl;
                     return viewLink;
                 }
             }
@@ -151,12 +139,12 @@ namespace Cliver
 
             public DriveItem GetDriveItem(string select, string expand = null)
             {
-                return GetDriveItem(select.Split(','), expand.Split(','));
+                return GetDriveItem(select?.Split(','), expand?.Split(','));
             }
 
             public DriveItem GetRootDriveItem()
             {
-                return OneDrive.Client.Drives[DriveId].Root.GetAsync().Result;
+                return OneDrive.GetRootDriveItem(DriveId);
             }
 
             public Folder GetParentFolder(bool refresh = true)
@@ -165,9 +153,6 @@ namespace Cliver
                     DriveItem.ParentReference = GetDriveItem("ParentReference").ParentReference;
 
                 DriveItem parentDriveItem = OneDrive.Client.Drives[DriveId].Items[DriveItem.ParentReference.Id].GetAsync().Result;
-
-                if (parentDriveItem == null)
-                    return null;
                 return (Folder)New(OneDrive, parentDriveItem);
             }
 
@@ -213,7 +198,6 @@ namespace Cliver
             public IEnumerable<Item> Search(string query)
             {
                 var driveItems = DriveItemRequestBuilder.SearchWithQ(query).GetAsSearchWithQGetResponseAsync().Result;
-
                 foreach (DriveItem item in driveItems.Value)
                     yield return New(OneDrive, item);
             }
@@ -233,11 +217,44 @@ namespace Cliver
             {
                 string escapedRelativePath = GetEscapedPath(relativePath);//(!)the API always tries to unescape
 
-                var di = DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync().Result;
-                if (di == null)
-                    return null;
+                DriveItem di = null;
+                try
+                {
+                    di = DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync().Result;
+                }
+                catch (Exception e)
+                {
+                    for (; e != null; e = e.InnerException)
+                        if (e is /*Microsoft.Graph.ServiceException*/ Microsoft.Kiota.Abstractions.ApiException ex && (int)System.Net.HttpStatusCode.NotFound == ex.ResponseStatusCode)
+                            return null;
+                    throw;
+                }
                 return New(OneDrive, di);
             }
+
+            //public Folder GetParentFolder(Path itemPath, bool createIfNotExists, out string folderOrFileName)
+            //{
+            //    string relativeParentFolder;
+            //    if (itemPath.BaseObject_LinkOrEncodedLinkOrShareId == null)
+            //    {
+            //        SplitRelativePath(itemPath.RelativePath, out relativeParentFolder, out folderOrFileName);
+            //        if (relativeParentFolder != null)
+            //            return GetFolder(new Path(null, relativeParentFolder), createIfNotExists);
+            //        return null;//parent of Root
+            //    }
+            //    Item i = GetItem(new Path(itemPath.BaseObject_LinkOrEncodedLinkOrShareId, null));
+            //    if (i == null)
+            //    {
+            //        folderOrFileName = null;
+            //        return null;
+            //    }
+            //    if (!(i is Folder))
+            //        throw new Exception("Link points not to a folder: " + itemPath.BaseObject_LinkOrEncodedLinkOrShareId);
+            //    SplitRelativePath(itemPath.RelativePath, out relativeParentFolder, out folderOrFileName);
+            //    if (relativeParentFolder != null)
+            //        return ((Folder)i).GetFolder(relativeParentFolder, createIfNotExists);
+            //    return (Folder)i;
+            //}
         }
     }
 }

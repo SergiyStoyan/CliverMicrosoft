@@ -51,42 +51,17 @@ namespace Cliver
             get
             {
                 if (_UserDrive != null)
-                    _UserDrive = Client.Me.Drive.GetAsync().Result;
+                    _UserDrive = Client.Users[User.Id].Drive.GetAsync().Result;
                 return _UserDrive;
             }
         }
         Drive _UserDrive;
 
-        public Item GetItemByPath(string relativePath)
+
+        public DriveItem GetRootDriveItem(string driveId)
         {
-            string escapedRelativePath = GetEscapedPath(relativePath);//(!)the API always tries to unescape
-
-            DriveItem driveItem = Client.Drives[UserDrive.Id].Root.ItemWithPath(escapedRelativePath).GetAsync().Result;
-            return Item.New(this, driveItem);
+            return Client.Drives[driveId].Root.GetAsync().Result;
         }
-
-        /// <summary>
-        /// It works for either shared or not shared items.
-        /// Expected to work for links of any form:
-        /// https://onedrive.live.com/redir?resid=1231244193912!12&authKey=1201919!12921!1
-        /// https://onedrive.live.com/?cid=ACBC822AFFB88213&id=ACBC822AFFB88213%21102&parId=root&o=OneUp
-        /// https://1drv.ms/x/s!AhOCuP8qgrysblVFtEANPUBlBu4
-        /// </summary>
-        /// <param name="linkOrEncodedLinkOrShareId"></param>
-        /// <returns></returns>
-        public Item GetItemByLink(string linkOrEncodedLinkOrShareId)
-        {
-            DriveItem driveItem = Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync().Result;
-            return Item.New(this, driveItem);
-        }
-
-        //public DriveItem GetRootDriveItem()
-        //{
-        //    return Task.Run(() =>
-        //    {
-        //        return Client.Me.Drive[DriveId].Root.GetAsync();
-        //    }).Result;
-        //}
 
         /// <summary>
         /// !!!when 'Can view' a user still can hange the file! Probabaly it is due to 'anybody with this link can edit the file'
@@ -153,92 +128,129 @@ namespace Cliver
         //    }
         //}
 
-        public Item GetItem(Path item)
+        /// <summary>
+        /// It works for either shared or not shared items.
+        /// Expected to work for links of any form:
+        /// https://onedrive.live.com/redir?resid=1231244193912!12&authKey=1201919!12921!1
+        /// https://onedrive.live.com/?cid=ACBC822AFFB88213&id=ACBC822AFFB88213%21102&parId=root&o=OneUp
+        /// https://1drv.ms/x/s!AhOCuP8qgrysblVFtEANPUBlBu4
+        /// </summary>
+        /// <param name="linkOrEncodedLinkOrShareId"></param>
+        /// <returns></returns>
+        public Item GetItem(string linkOrEncodedLinkOrShareId)
         {
-            return Item.Get(this, item);
+            DriveItem di = null; 
+            try
+            {
+                di = Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync().Result;
+            }
+            catch (Exception e)
+            {
+                for (; e != null; e = e.InnerException)
+                    if (e is /*Microsoft.Graph.ServiceException*/ Microsoft.Kiota.Abstractions.ApiException ex && (int)System.Net.HttpStatusCode.NotFound == ex.ResponseStatusCode)
+                        return null;
+                throw;
+            }
+            return Item.New(this, di);
         }
 
-        //public IEnumerable<Item> Search(string pattern)
-        //{
-        //    IDriveSearchCollectionPage driveItems = Task.Run(() =>
-        //    {
-        //        return Client.Me.Drive.Search(pattern).Request().GetAsync();
-        //    }).Result;
-
-        //    foreach (DriveItem item in driveItems)
-        //        yield return Item.New(this, item);
-        //}
-
-        public Folder GetFolder(Path folder, bool createIfNotExists)
+        public Item GetItemByRootPath(string rootPath)
         {
-            return Folder.Get(this, folder, createIfNotExists);
+            string escapedRelativePath = GetEscapedPath(rootPath);//(!)the API always tries to unescape
+            DriveItem di = null;
+            try
+            {
+                di = Client.Drives[UserDrive.Id].Root.ItemWithPath(escapedRelativePath).GetAsync().Result;
+            }
+            catch (Exception e)
+            {
+                for (; e != null; e = e.InnerException)
+                    if (e is /*Microsoft.Graph.ServiceException*/ Microsoft.Kiota.Abstractions.ApiException ex && (int)System.Net.HttpStatusCode.NotFound == ex.ResponseStatusCode)
+                        return null;
+                throw;
+            }
+            return Item.New(this, di);
         }
 
-        public Folder GetFolder(string linkOrEncodedLinkOrShareId, bool createIfNotExists)
+        public Folder GetFolder(string linkOrEncodedLinkOrShareId)
         {
-            return GetFolder(new Path(linkOrEncodedLinkOrShareId), createIfNotExists);
-        }
-
-        public File GetFile(Path file)
-        {
-            return File.Get(this, file);
+            return (Folder)GetItem(linkOrEncodedLinkOrShareId);
         }
 
         public File GetFile(string linkOrEncodedLinkOrShareId)
         {
-            return GetFile(new Path(linkOrEncodedLinkOrShareId));
+            return (File)GetItem(linkOrEncodedLinkOrShareId);
+        }
+        
+        /// <summary>
+        /// (!)OneDrive API always tries to url-unescape path arguments.
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
+        public static string GetEscapedPath(string path)
+        {
+            //return Regex.Replace(path, @"\%", @"%25");
+
+            if (!path.Contains('%'))//(!)The server always tries to url-decode
+                return path;
+            string[] ps = path.Split('\\', '/');
+            for (int i = 0; i < ps.Length; i++)
+                ps[i] = Uri.EscapeDataString(ps[i]);
+            return string.Join("\\", ps);
         }
 
-        public File UploadFile(string localFile, Path remoteFile)
+        /// <summary>
+        /// Provides argument for Client.Shares[shareIdOrEncodedSharingUrl].
+        /// Expected to work for links of any form:
+        /// https://onedrive.live.com/redir?resid=1231244193912!12&authKey=1201919!12921!1
+        /// https://onedrive.live.com/?cid=ACBC822AFFB88213&id=ACBC822AFFB88213%21102&parId=root&o=OneUp
+        /// https://1drv.ms/x/s!AhOCuP8qgrysblVFtEANPUBlBu4
+        /// Encoded link or shareId is retruned unchanged.
+        /// </summary>
+        /// <param name="linkOrEncodedLinkOrShareId"></param>
+        /// <returns></returns>
+        static public string GetEncodedLinkOrShareId(string linkOrEncodedLinkOrShareId)
         {
-            Folder f = GetParentFolder(remoteFile, true, out string folderOrFileName);
-            return f.UploadFile(localFile, folderOrFileName);
+            if (Regex.IsMatch(linkOrEncodedLinkOrShareId, @"^\s*(u|s)\!"))
+                return linkOrEncodedLinkOrShareId;
+            string base64Value = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(linkOrEncodedLinkOrShareId));
+            return "u!" + base64Value.TrimEnd('=').Replace('/', '_').Replace('+', '-');
         }
 
-        public File UploadFile(string localFile, string linkOrEncodedLinkOrShareId)
+        public static bool SplitPath(string relativePath, out string parentFolder, out string itemName, bool removeTrailingSeparator = true)
         {
-            return UploadFile(localFile, new Path(linkOrEncodedLinkOrShareId));
-        }
-
-        public Folder GetParentFolder(Path itemPath, bool createIfNotExists, out string folderOrFileName)
-        {
-            string relativeParentFolder;
-            if (itemPath.BaseObject_LinkOrEncodedLinkOrShareId == null)
+            Match m = Regex.Match(relativePath, @"(.*)[\\\/]+([^\\]+)$");
+            if (!m.Success)
             {
-                SplitRelativePath(itemPath.RelativePath, out relativeParentFolder, out folderOrFileName);
-                if (relativeParentFolder != null)
-                    return GetFolder(new Path(null, relativeParentFolder), createIfNotExists);
-                return null;//parent of Root
+                parentFolder = null;
+                itemName = clear(relativePath);
+                return false;
             }
-            Item i = GetItem(new Path(itemPath.BaseObject_LinkOrEncodedLinkOrShareId, null));
-            if (i == null)
+            parentFolder = clear(m.Groups[1].Value);
+            itemName = clear(m.Groups[2].Value);
+            return true;
+
+            string clear(string fd)
             {
-                folderOrFileName = null;
-                return null;
+                if (removeTrailingSeparator)
+                    return fd.TrimEnd('\\', '/');
+                return fd;
             }
-            if (!(i is Folder))
-                throw new Exception("Link points not to a folder: " + itemPath.BaseObject_LinkOrEncodedLinkOrShareId);
-            SplitRelativePath(itemPath.RelativePath, out relativeParentFolder, out folderOrFileName);
-            if (relativeParentFolder != null)
-                return ((Folder)i).GetFolder(relativeParentFolder, createIfNotExists);
-            return (Folder)i;
         }
 
-        public File DownloadFile(Path remoteFile, string localFile)
+        /// <summary>
+        /// Provides argument for Client.Shares[shareIdOrEncodedSharingUrl].
+        /// Expected to work for links of any form:
+        /// https://onedrive.live.com/redir?resid=1231244193912!12&authKey=1201919!12921!1
+        /// https://onedrive.live.com/?cid=ACBC822AFFB88213&id=ACBC822AFFB88213%21102&parId=root&o=OneUp
+        /// https://1drv.ms/x/s!AhOCuP8qgrysblVFtEANPUBlBu4
+        /// Encoded link or shareId is retruned unchanged.
+        /// </summary>
+        /// <param name="linkOrEncodedLinkOrShareId"></param>
+        /// <returns></returns>
+        public static bool IsLinkOneDrive(string linkOrEncodedLinkOrShareId)
         {
-            File f = File.Get(this, remoteFile);
-            f.Download(localFile);
-            return f;
-        }
-
-        public File DownloadFile(string linkOrEncodedLinkOrShareId, string localFile)
-        {
-            return DownloadFile(new Path(linkOrEncodedLinkOrShareId), localFile);
-        }
-
-        public static bool IsLinkOneDrive(string link)
-        {
-            return Regex.IsMatch(link, @"https\://(drive.google.com/drive/|1drv.ms/)", RegexOptions.IgnoreCase);
+            return Regex.IsMatch(linkOrEncodedLinkOrShareId, @"^\s*(https\://(onedrive\.live\.com|1drv\.ms)[\/\?]|u!)", RegexOptions.IgnoreCase);
         }
     }
 }
