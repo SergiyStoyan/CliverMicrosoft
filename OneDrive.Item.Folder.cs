@@ -33,7 +33,7 @@ namespace Cliver
                 DriveItem di = null;
                 try
                 {
-                    di = DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync().Result;
+                    di = Task.Run(() => { return DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync(); }).Result;
                 }
                 catch (Exception e)
                 {
@@ -48,7 +48,7 @@ namespace Cliver
             public File GetFile(string relativePath)
             {
                 Item i = GetItem(relativePath);
-                if(i == null)
+                if (i == null)
                     return null;
                 if (i is File)
                     return (File)i;
@@ -64,7 +64,7 @@ namespace Cliver
                 {
                     try
                     {
-                        return DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync().Result;
+                        return Task.Run(() => { return DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync(); }).Result;
                     }
                     catch (Exception e)
                     {
@@ -97,7 +97,7 @@ namespace Cliver
                                 {"@microsoft.graph.conflictBehavior", "rename"}
                             }
                     };
-                    DriveItem cdi = DriveItemRequestBuilder.Children.PostAsync(di).Result;
+                    DriveItem cdi = Task.Run(() => { return DriveItemRequestBuilder.Children.PostAsync(di); }).Result;
                     return new Folder(OneDrive, cdi);
                 }
                 return GetFolder(parentFolder, createIfNotExists).GetFolder(itemName, createIfNotExists);
@@ -118,7 +118,7 @@ namespace Cliver
 
                 using (Stream s = System.IO.File.OpenRead(localFile))
                 {
-                    DriveItem driveItem = DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).Content.PutAsync(s).Result;
+                    DriveItem driveItem = Task.Run(() => { return DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).Content.PutAsync(s); }).Result;
                     return new File(OneDrive, driveItem);
                 }
             }
@@ -127,7 +127,7 @@ namespace Cliver
             {
                 string escapedRelativePath = GetEscapedPath(remoteFileRelativePath);//(!)the API always tries to unescape
 
-                using (Stream s = DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).Content.GetAsync().Result)
+                using (Stream s = Task.Run(() => { return DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).Content.GetAsync(); }).Result)
                 {
                     using (var fileStream = System.IO.File.Create(localFile))
                     {
@@ -144,15 +144,18 @@ namespace Cliver
 
             IEnumerable<DriveItem> getChildren(string filter)
             {
-                return DriveItemRequestBuilder.Children.GetAsync(
-                    rc =>
+                return Task.Run(() =>
                     {
-                        rc.Headers["Prefer"] = new string[] { "apiversion = 2.1", //supports Filter
-                            "TryFilterLastModifiedDateTimeTimeWarningMayFailRandomly", //supports filtering by lastModifiedDateTime
-                        };
-                        rc.QueryParameters.Filter = filter;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
-                    }
-                ).Result.Value;
+                        return DriveItemRequestBuilder.Children.GetAsync(
+                        rc =>
+                        {
+                            rc.Headers["Prefer"] = new string[] { "apiversion = 2.1", //supports Filter
+                                "TryFilterLastModifiedDateTimeTimeWarningMayFailRandomly", //supports filtering by lastModifiedDateTime
+                            };
+                            rc.QueryParameters.Filter = filter;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
+                        }
+                    );
+                    }).Result.Value;
             }
 
             public List<File> GetFiles(string filter = null)

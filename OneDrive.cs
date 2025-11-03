@@ -16,6 +16,19 @@ using Microsoft.Graph.Models;
 
 namespace Cliver
 {
+    /// <summary>
+    /// (!!!)Microsoft.Graph 4,5 have the issue with hanging on GetAsync().Result in some methods. 
+    /// It happens due to using HttpClient. 
+    /// See: https://stackoverflow.com/questions/10343632/httpclient-getasync-never-returns-when-using-await-async
+    /// My following tests failed:
+    /// GetAsync().Result;
+    /// GetAsync().ConfigureAwait(false).GetAwaiter().GetResult(); (confirmed by https://stackoverflow.com/questions/54372407/still-confused-on-configureawaitfalse-used-with-getawaiter-and-getresult-in-c)
+    /// The only reliable solution is wraping the calls like this: Task.Run(() => { return client.Users.Request().GetAsync();}).Result;
+    /// Otherwise it must called in async/await mode.
+    /// Which exactly methods do not hang is unclear, so almost all the calls are wrapped.
+    /// See: https://stackoverflow.com/questions/55944518/microsoft-graph-api-call-hangs-indefinitely      
+    /// https://stackoverflow.com/questions/55105321/microsoft-graph-getasync-hangs-indefinitely
+    /// </summary>
     public partial class OneDrive : MicrosoftService
     {
         public OneDrive(MicrosoftSettings microsoftSettings) : base(microsoftSettings)
@@ -51,7 +64,7 @@ namespace Cliver
             get
             {
                 if (_UserDrive != null)
-                    _UserDrive = Client.Users[User.Id].Drive.GetAsync().Result;
+                    _UserDrive = Task.Run(() => { return Client.Users[User.Id].Drive.GetAsync(); }).Result;
                 return _UserDrive;
             }
         }
@@ -60,7 +73,7 @@ namespace Cliver
 
         public DriveItem GetRootDriveItem(string driveId)
         {
-            return Client.Drives[driveId].Root.GetAsync().Result;
+            return Task.Run(() => { return Client.Drives[driveId].Root.GetAsync(); }).Result;
         }
 
         /// <summary>
@@ -139,10 +152,10 @@ namespace Cliver
         /// <returns></returns>
         public Item GetItem(string linkOrEncodedLinkOrShareId)
         {
-            DriveItem di = null; 
+            DriveItem di = null;
             try
             {
-                di = Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync().Result;
+                di = Task.Run(() => { return Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync(); }).Result;
             }
             catch (Exception e)
             {
@@ -160,7 +173,7 @@ namespace Cliver
             DriveItem di = null;
             try
             {
-                di = Client.Drives[UserDrive.Id].Root.ItemWithPath(escapedRelativePath).GetAsync().Result;
+                di = Task.Run(() => { return Client.Drives[UserDrive.Id].Root.ItemWithPath(escapedRelativePath).GetAsync(); }).Result;
             }
             catch (Exception e)
             {
@@ -181,7 +194,7 @@ namespace Cliver
         {
             return (File)GetItem(linkOrEncodedLinkOrShareId);
         }
-        
+
         /// <summary>
         /// (!)OneDrive API always tries to url-unescape path arguments.
         /// </summary>

@@ -77,6 +77,7 @@ namespace Cliver
                 //if (SharepointIds == null)
                 //    throw new Exception("SharepointIds are NULL while the DriveItem status is CheckedOut.");
                 var di = GetDriveItem("id", "activities");
+                //https://stackoverflow.com/questions/51606008/ms-graph-rest-api-checkout-user
                 /* "action": {
                 "checkout": { }
             },
@@ -88,9 +89,11 @@ namespace Cliver
                     "userPrincipalName": "XXX@XXX
                 }
             },*/
-                JObject activities = new JObject(di.AdditionalData);
-                JObject a = (JObject)activities["action"];
-                if (a["action"]?["checkout"] == null)
+                var data = di.AdditionalData["activity"];
+                //.Select(a => new JProperty(a.Key, a.Value));
+                JObject activities = new JObject(data);
+                JObject action = (JObject)activities["action"];
+                if (action["action"]?["checkout"] == null)
                     return null;
                 return (JObject)activities["actor"]?["user"];
                 //Log.Debug0(fieldValueSet.AdditionalData.ToStringByJson());
@@ -115,7 +118,7 @@ namespace Cliver
                     else
                         return CheckStatus.CheckedOutByNotMe;
 
-                DriveItemRequestBuilder.Checkout.PostAsync().Wait();
+                Task.Run(() => { return DriveItemRequestBuilder.Checkout.PostAsync(); }).Wait();
 
                 SleepRoutines.WaitForCondition(() =>
                 {
@@ -128,42 +131,42 @@ namespace Cliver
                 return cs;
             }
 
-            /// <summary>
-            /// !!!TBF
-            /// </summary>
-            /// <returns></returns>
-            public List<string> GetCurrentEditors()
-            {
-                //get who keeps it open (for Excel sheets):                    
-                DriveItem di = GetDriveItem(null, "activities");
-                Log.Debug0(di.AdditionalData.ToStringByJson());
+            ///// <summary>
+            ///// !!!TBF
+            ///// </summary>
+            ///// <returns></returns>
+            //public List<string> GetCurrentEditors()
+            //{
+            //    //get who keeps it open (for Excel sheets):                    
+            //    DriveItem di = GetDriveItem(null, "activities");
+            //    Log.Debug0(di.AdditionalData.ToStringByJson());
 
-                Log.Debug0(SharepointIds.ToStringByJson());
-                //Log.Debug0(ListItem.SharepointIds.ToStringByJson());
+            //    Log.Debug0(SharepointIds.ToStringByJson());
+            //    //Log.Debug0(ListItem.SharepointIds.ToStringByJson());
 
-                object activities = di.AdditionalData["activities"];
-                Log.Debug0(activities.GetType().ToString());
-                Log.Debug0(ListItem.AdditionalData.ToStringByJson());
+            //    object activities = di.AdditionalData["activities"];
+            //    Log.Debug0(activities.GetType().ToString());
+            //    Log.Debug0(ListItem.AdditionalData.ToStringByJson());
 
-                //var t = Task.Run(() =>
-                //{
-                //    //!!!GetActivitiesByInterval gives not user names
-                //    return DriveItemRequestBuilder.GetActivitiesByInterval.GetAsGetActivitiesByIntervalGetResponseAsync(rc =>
-                //    {
-                //         rc.QueryParameters.
-                //    }).(DateTime.Now.AddMinutes(-20).ToString("yyyy-MM-dd HH:mm:ss"), DateTime.Now.AddMinutes(2).ToString("yyyy-MM-dd HH:mm:ss"), "hour").Request().GetAsync();
-                //}).Result;
-                //Log.Debug0(t.ToStringByJson());
+            //    //var t = Task.Run(() =>
+            //    //{
+            //    //    //!!!GetActivitiesByInterval gives not user names
+            //    //    return DriveItemRequestBuilder.GetActivitiesByInterval.GetAsGetActivitiesByIntervalGetResponseAsync(rc =>
+            //    //    {
+            //    //         rc.QueryParameters.
+            //    //    }).(DateTime.Now.AddMinutes(-20).ToString("yyyy-MM-dd HH:mm:ss"), DateTime.Now.AddMinutes(2).ToString("yyyy-MM-dd HH:mm:ss"), "hour").Request().GetAsync();
+            //    //}).Result;
+            //    //Log.Debug0(t.ToStringByJson());
 
-                //FieldValueSet fieldValueSet = Task.Run(() =>
-                //{
-                //    var queryOptions = new List<QueryOption>() { new QueryOption("expand", "activities") };
-                //    return OneDrive.Client.Sites[SharepointIds.SiteId].Lists[SharepointIds.ListItemId].Items[ItemId].Fields.Request(queryOptions).GetAsync();
-                //}).Result;//!!!The problem seems to be because of missing oAuth permissions for Sites on the client.
-                //Log.Debug0(fieldValueSet.AdditionalData.ToStringByJson());
+            //    //FieldValueSet fieldValueSet = Task.Run(() =>
+            //    //{
+            //    //    var queryOptions = new List<QueryOption>() { new QueryOption("expand", "activities") };
+            //    //    return OneDrive.Client.Sites[SharepointIds.SiteId].Lists[SharepointIds.ListItemId].Items[ItemId].Fields.Request(queryOptions).GetAsync();
+            //    //}).Result;//!!!The problem seems to be because of missing oAuth permissions for Sites on the client.
+            //    //Log.Debug0(fieldValueSet.AdditionalData.ToStringByJson());
 
-                return new List<string> { "test" };
-            }
+            //    return new List<string> { "test" };
+            //}
 
             /// <summary>
             /// Default time to wait for the check status value to change after check-in and check-out. 
@@ -189,7 +192,7 @@ namespace Cliver
                 {
                     Comment = comment,
                 };
-                DriveItemRequestBuilder.Checkin.PostAsync(rb).Wait();
+                Task.Run(() => { return DriveItemRequestBuilder.Checkin.PostAsync(rb); }).Wait();
 
                 cs = CheckStatus.NotSupported;
                 SleepRoutines.WaitForCondition(() =>
@@ -213,7 +216,7 @@ namespace Cliver
 
             public void Download(string localFile)
             {
-                using (Stream s = DriveItemRequestBuilder.Content.GetAsync().Result)
+                using (Stream s = Task.Run(() => { return DriveItemRequestBuilder.Content.GetAsync(); }).Result)
                 {
                     using (var fileStream = System.IO.File.Create(localFile))
                     {
@@ -227,7 +230,7 @@ namespace Cliver
             {
                 using (Stream s = System.IO.File.OpenRead(localFile))
                 {
-                    DriveItem = DriveItemRequestBuilder.Content.PutAsync(s).Result;
+                    DriveItem = Task.Run(() => { return DriveItemRequestBuilder.Content.PutAsync(s); }).Result;
                 }
             }
         }

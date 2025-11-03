@@ -110,7 +110,7 @@ namespace Cliver
                         Scope = linkScopes.ToString(),
                         RetainInheritedPermissions = retainInheritedPermissions,
                     };
-                    Permission p = DriveItemRequestBuilder.CreateLink.PostAsync(requestBody).Result;
+                    Permission p = Task.Run(() => { return DriveItemRequestBuilder.CreateLink.PostAsync(requestBody); }).Result;
                     return p.Link;
                 }
             }
@@ -128,13 +128,16 @@ namespace Cliver
 
             public DriveItem GetDriveItem(string[] select = null, string[] expand = null/*, string selectWithoutPrefix = null, string expandWithoutPrefix = null*/)
             {
-                return DriveItemRequestBuilder.GetAsync(
-                    rc =>
+                return Task.Run(() =>
                     {
-                        rc.QueryParameters.Select = select;//new string[] { "id", "createdDateTime" }
-                        rc.QueryParameters.Expand = expand;
-                    }
-                ).Result;
+                        return DriveItemRequestBuilder.GetAsync(
+                        rc =>
+                        {
+                            rc.QueryParameters.Select = select;//new string[] { "id", "createdDateTime" }
+                            rc.QueryParameters.Expand = expand;
+                        }
+                    );
+                    }).Result;
             }
 
             public DriveItem GetDriveItem(string select, string expand = null)
@@ -152,13 +155,13 @@ namespace Cliver
                 if (refresh || DriveItem.ParentReference == null)
                     DriveItem.ParentReference = GetDriveItem("ParentReference").ParentReference;
 
-                DriveItem parentDriveItem = OneDrive.Client.Drives[DriveId].Items[DriveItem.ParentReference.Id].GetAsync().Result;
+                DriveItem parentDriveItem = Task.Run(() => { return OneDrive.Client.Drives[DriveId].Items[DriveItem.ParentReference.Id].GetAsync(); }).Result;
                 return (Folder)New(OneDrive, parentDriveItem);
             }
 
             public void Delete()
             {
-                DriveItemRequestBuilder.DeleteAsync().Wait();
+                Task.Run(() => { DriveItemRequestBuilder.DeleteAsync(); }).Wait();
             }
 
             //public void Rename()
@@ -197,7 +200,7 @@ namespace Cliver
 
             public IEnumerable<Item> Search(string query)
             {
-                var driveItems = DriveItemRequestBuilder.SearchWithQ(query).GetAsSearchWithQGetResponseAsync().Result;
+                var driveItems = Task.Run(() => { return DriveItemRequestBuilder.SearchWithQ(query).GetAsSearchWithQGetResponseAsync(); }).Result;
                 foreach (DriveItem item in driveItems.Value)
                     yield return New(OneDrive, item);
             }
@@ -220,7 +223,7 @@ namespace Cliver
                 DriveItem di = null;
                 try
                 {
-                    di = DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync().Result;
+                    di = Task.Run(() => { return DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync(); }).Result;
                 }
                 catch (Exception e)
                 {
@@ -231,30 +234,6 @@ namespace Cliver
                 }
                 return New(OneDrive, di);
             }
-
-            //public Folder GetParentFolder(Path itemPath, bool createIfNotExists, out string folderOrFileName)
-            //{
-            //    string relativeParentFolder;
-            //    if (itemPath.BaseObject_LinkOrEncodedLinkOrShareId == null)
-            //    {
-            //        SplitRelativePath(itemPath.RelativePath, out relativeParentFolder, out folderOrFileName);
-            //        if (relativeParentFolder != null)
-            //            return GetFolder(new Path(null, relativeParentFolder), createIfNotExists);
-            //        return null;//parent of Root
-            //    }
-            //    Item i = GetItem(new Path(itemPath.BaseObject_LinkOrEncodedLinkOrShareId, null));
-            //    if (i == null)
-            //    {
-            //        folderOrFileName = null;
-            //        return null;
-            //    }
-            //    if (!(i is Folder))
-            //        throw new Exception("Link points not to a folder: " + itemPath.BaseObject_LinkOrEncodedLinkOrShareId);
-            //    SplitRelativePath(itemPath.RelativePath, out relativeParentFolder, out folderOrFileName);
-            //    if (relativeParentFolder != null)
-            //        return ((Folder)i).GetFolder(relativeParentFolder, createIfNotExists);
-            //    return (Folder)i;
-            //}
         }
     }
 }
