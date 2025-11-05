@@ -118,7 +118,7 @@ namespace Cliver
                     else
                         return CheckStatus.CheckedOutByNotMe;
 
-                Task.Run(() => { return DriveItemRequestBuilder.Checkout.PostAsync(); }).Wait();
+                RunSync(() => DriveItemRequestBuilder.Checkout.PostAsync());
 
                 SleepRoutines.WaitForCondition(() =>
                 {
@@ -192,7 +192,7 @@ namespace Cliver
                 {
                     Comment = comment,
                 };
-                Task.Run(() => { return DriveItemRequestBuilder.Checkin.PostAsync(rb); }).Wait();
+                RunSync(() => DriveItemRequestBuilder.Checkin.PostAsync(rb));
 
                 cs = CheckStatus.NotSupported;
                 SleepRoutines.WaitForCondition(() =>
@@ -216,7 +216,7 @@ namespace Cliver
 
             public void Download(string localFile)
             {
-                using (Stream s = Task.Run(() => { return DriveItemRequestBuilder.Content.GetAsync(); }).Result)
+                using (Stream s = RunSync(() => DriveItemRequestBuilder.Content.GetAsync()))
                 {
                     using (var fileStream = System.IO.File.Create(localFile))
                     {
@@ -230,7 +230,7 @@ namespace Cliver
             {
                 using (Stream s = System.IO.File.OpenRead(localFile))
                 {
-                    DriveItem = Task.Run(() => { return DriveItemRequestBuilder.Content.PutAsync(s); }).Result;
+                    DriveItem = RunSync(() => DriveItemRequestBuilder.Content.PutAsync(s));
                 }
             }
         }

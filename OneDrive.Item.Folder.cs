@@ -33,7 +33,7 @@ namespace Cliver
                 DriveItem di = null;
                 try
                 {
-                    di = Task.Run(() => { return DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync(); }).Result;
+                    di = RunSync(() =>  DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync());
                 }
                 catch (Exception e)
                 {
@@ -64,7 +64,7 @@ namespace Cliver
                 {
                     try
                     {
-                        return Task.Run(() => { return DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync(); }).Result;
+                        return RunSync(() =>  DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync());
                     }
                     catch (Exception e)
                     {
@@ -97,7 +97,7 @@ namespace Cliver
                                 {"@microsoft.graph.conflictBehavior", "rename"}
                             }
                     };
-                    DriveItem cdi = Task.Run(() => { return DriveItemRequestBuilder.Children.PostAsync(di); }).Result;
+                    DriveItem cdi = RunSync(() =>  DriveItemRequestBuilder.Children.PostAsync(di));
                     return new Folder(OneDrive, cdi);
                 }
                 return GetFolder(parentFolder, createIfNotExists).GetFolder(itemName, createIfNotExists);
@@ -118,7 +118,7 @@ namespace Cliver
 
                 using (Stream s = System.IO.File.OpenRead(localFile))
                 {
-                    DriveItem driveItem = Task.Run(() => { return DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).Content.PutAsync(s); }).Result;
+                    DriveItem driveItem = RunSync(() =>  DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).Content.PutAsync(s));
                     return new File(OneDrive, driveItem);
                 }
             }
@@ -127,7 +127,7 @@ namespace Cliver
             {
                 string escapedRelativePath = GetEscapedPath(remoteFileRelativePath);//(!)the API always tries to unescape
 
-                using (Stream s = Task.Run(() => { return DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).Content.GetAsync(); }).Result)
+                using (Stream s = RunSync(() =>  DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).Content.GetAsync()))
                 {
                     using (var fileStream = System.IO.File.Create(localFile))
                     {

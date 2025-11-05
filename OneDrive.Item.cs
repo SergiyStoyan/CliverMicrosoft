@@ -110,7 +110,7 @@ namespace Cliver
                         Scope = linkScopes.ToString(),
                         RetainInheritedPermissions = retainInheritedPermissions,
                     };
-                    Permission p = Task.Run(() => { return DriveItemRequestBuilder.CreateLink.PostAsync(requestBody); }).Result;
+                    Permission p = RunSync(() => DriveItemRequestBuilder.CreateLink.PostAsync(requestBody));
                     return p.Link;
                 }
             }
@@ -155,13 +155,13 @@ namespace Cliver
                 if (refresh || DriveItem.ParentReference == null)
                     DriveItem.ParentReference = GetDriveItem("ParentReference").ParentReference;
 
-                DriveItem parentDriveItem = Task.Run(() => { return OneDrive.Client.Drives[DriveId].Items[DriveItem.ParentReference.Id].GetAsync(); }).Result;
+                DriveItem parentDriveItem = RunSync(() => OneDrive.Client.Drives[DriveId].Items[DriveItem.ParentReference.Id].GetAsync());
                 return (Folder)New(OneDrive, parentDriveItem);
             }
 
             public void Delete()
             {
-                Task.Run(() => { DriveItemRequestBuilder.DeleteAsync(); }).Wait();
+                RunSync(() => DriveItemRequestBuilder.DeleteAsync());
             }
 
             //public void Rename()
@@ -200,7 +200,7 @@ namespace Cliver
 
             public IEnumerable<Item> Search(string query)
             {
-                var driveItems = Task.Run(() => { return DriveItemRequestBuilder.SearchWithQ(query).GetAsSearchWithQGetResponseAsync(); }).Result;
+                var driveItems = RunSync(() => DriveItemRequestBuilder.SearchWithQ(query).GetAsSearchWithQGetResponseAsync());
                 foreach (DriveItem item in driveItems.Value)
                     yield return New(OneDrive, item);
             }
@@ -223,7 +223,7 @@ namespace Cliver
                 DriveItem di = null;
                 try
                 {
-                    di = Task.Run(() => { return DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync(); }).Result;
+                    di = RunSync(() => DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync());
                 }
                 catch (Exception e)
                 {

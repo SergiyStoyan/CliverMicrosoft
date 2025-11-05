@@ -125,7 +125,7 @@ namespace Cliver
             //ThreadRoutines.StartTrySta(authenticate().Wait).Join();//!!!intermittently freezes
 
             //if (System.Threading.Thread.CurrentThread.GetApartmentState() == System.Threading.ApartmentState.STA)
-            TaskRoutines.RunSynchronously(authenticate);//???works reliably?
+            TaskRoutines.RunSync(authenticate);//???works reliably?
             //else
             //   ThreadRoutines.StartTrySta(() => { TaskRoutines.RunSynchronously(authenticate); }).Join();//feezes
         }

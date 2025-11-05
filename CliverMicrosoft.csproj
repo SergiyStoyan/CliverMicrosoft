@@ -8,7 +8,7 @@
 	  <Copyright>Sergiy Stoyan</Copyright>
 	  <Authors>Sergiy Stoyan</Authors>
 	  <Company>CliverSoft</Company>
-	  <Version>5.1.0</Version>
+	  <Version>5.2.0</Version>
 	  <PackageProjectUrl>https://github.com/sergiystoyan/CliverMicrosoft</PackageProjectUrl>
 	  <Description>Routines based on Microsoft.Graph</Description>
 	  <PackageTags>Microsoft.Graph</PackageTags>
@@ -29,7 +29,7 @@
 
 	<ItemGroup>
 	  <PackageReference Include="Azure.Identity" Version="1.17.0" />
-	  <PackageReference Include="CliverRoutines" Version="6.54.0" />
+	  <PackageReference Include="CliverRoutines" Version="6.55.0" />
 	  <PackageReference Include="Microsoft.Graph" Version="5.95.0" />
 	  <PackageReference Include="Microsoft.Identity.Client" Version="4.78.1-preview1" />
 	</ItemGroup>

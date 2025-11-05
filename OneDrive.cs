@@ -23,7 +23,7 @@ namespace Cliver
     /// My following tests failed:
     /// GetAsync().Result;
     /// GetAsync().ConfigureAwait(false).GetAwaiter().GetResult(); (confirmed by https://stackoverflow.com/questions/54372407/still-confused-on-configureawaitfalse-used-with-getawaiter-and-getresult-in-c)
-    /// The only reliable solution is wraping the calls like this: Task.Run(() => { return client.Users.Request().GetAsync();}).Result;
+    /// The only reliable solution is wraping the calls like this: RunSync(() =>  client.Users.Request().GetAsync();}).Result;
     /// Otherwise it must called in async/await mode.
     /// Which exactly methods do not hang is unclear, so almost all the calls are wrapped.
     /// See: https://stackoverflow.com/questions/55944518/microsoft-graph-api-call-hangs-indefinitely      
@@ -34,6 +34,19 @@ namespace Cliver
         public OneDrive(MicrosoftSettings microsoftSettings) : base(microsoftSettings)
         {
         }
+
+        public static void RunSync(Func<Task> getTask)
+        {
+            //TaskRoutines.RunSynchronously(getTask);
+            Task.Run(getTask).Wait();
+        }
+
+        public static T RunSync<T>(Func<Task<T>> getTask)
+        {
+            //return TaskRoutines.RunSynchronously(getTask);
+            return Task.Run(getTask).Result;
+        }
+
         public bool? CheckInIsSupported { get; internal set; } = null;
 
         //        public void test(string itemId)
@@ -63,8 +76,8 @@ namespace Cliver
         {
             get
             {
-                if (_UserDrive != null)
-                    _UserDrive = Task.Run(() => { return Client.Users[User.Id].Drive.GetAsync(); }).Result;
+                if (_UserDrive == null)
+                    _UserDrive = RunSync(() => Client.Users[User.Id].Drive.GetAsync());
                 return _UserDrive;
             }
         }
@@ -73,7 +86,7 @@ namespace Cliver
 
         public DriveItem GetRootDriveItem(string driveId)
         {
-            return Task.Run(() => { return Client.Drives[driveId].Root.GetAsync(); }).Result;
+            return RunSync(() => Client.Drives[driveId].Root.GetAsync());
         }
 
         /// <summary>
@@ -155,7 +168,8 @@ namespace Cliver
             DriveItem di = null;
             try
             {
-                di = Task.Run(() => { return Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync(); }).Result;
+                di = RunSync(() => Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync());
+                //di = Task.Run(() => { return Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync(); }).Result;
             }
             catch (Exception e)
             {
@@ -173,7 +187,7 @@ namespace Cliver
             DriveItem di = null;
             try
             {
-                di = Task.Run(() => { return Client.Drives[UserDrive.Id].Root.ItemWithPath(escapedRelativePath).GetAsync(); }).Result;
+                di = RunSync(() => Client.Drives[UserDrive.Id].Root.ItemWithPath(escapedRelativePath).GetAsync());
             }
             catch (Exception e)
             {
@@ -183,6 +197,40 @@ namespace Cliver
                 throw;
             }
             return Item.New(this, di);
+        }
+
+        public Site GetSite(string siteId)
+        {
+            Site s = null;
+            try
+            {
+                s = RunSync(() => Client.Sites[siteId].GetAsync());
+            }
+            catch (Exception e)
+            {
+                for (; e != null; e = e.InnerException)
+                    if (e is /*Microsoft.Graph.ServiceException*/ Microsoft.Kiota.Abstractions.ApiException ex && (int)System.Net.HttpStatusCode.NotFound == ex.ResponseStatusCode)
+                        return null;
+                throw;
+            }
+            return s;
+        }
+
+        public Drive GetDrive(string driveId)
+        {
+            Drive s = null;
+            try
+            {
+                s = RunSync(() => Client.Drives[driveId].GetAsync());
+            }
+            catch (Exception e)
+            {
+                for (; e != null; e = e.InnerException)
+                    if (e is /*Microsoft.Graph.ServiceException*/ Microsoft.Kiota.Abstractions.ApiException ex && (int)System.Net.HttpStatusCode.NotFound == ex.ResponseStatusCode)
+                        return null;
+                throw;
+            }
+            return s;
         }
 
         public Folder GetFolder(string linkOrEncodedLinkOrShareId)
@@ -257,13 +305,14 @@ namespace Cliver
         /// https://onedrive.live.com/redir?resid=1231244193912!12&authKey=1201919!12921!1
         /// https://onedrive.live.com/?cid=ACBC822AFFB88213&id=ACBC822AFFB88213%21102&parId=root&o=OneUp
         /// https://1drv.ms/x/s!AhOCuP8qgrysblVFtEANPUBlBu4
+        /// https://hawkeyeelectricinc.sharepoint.com/:f:/r/sites/HawkeyeElectricFTP/Shared%20Documents/Archive%20Folder?csf=1&web=1&e=QaReiI
         /// Encoded link or shareId is retruned unchanged.
         /// </summary>
         /// <param name="linkOrEncodedLinkOrShareId"></param>
         /// <returns></returns>
         public static bool IsLinkOneDrive(string linkOrEncodedLinkOrShareId)
         {
-            return Regex.IsMatch(linkOrEncodedLinkOrShareId, @"^\s*(https\://(onedrive\.live\.com|1drv\.ms)[\/\?]|u!)", RegexOptions.IgnoreCase);
+            return Regex.IsMatch(linkOrEncodedLinkOrShareId, @"^\s*(https\://(onedrive\.live\.com|1drv\.ms|.+\.sharepoint\.com)[\/\?]|u!)", RegexOptions.IgnoreCase);
         }
     }
 }
