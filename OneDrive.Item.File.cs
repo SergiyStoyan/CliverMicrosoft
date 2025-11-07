@@ -20,14 +20,18 @@ namespace Cliver
     {
         public class File : Item
         {
-            public static File Get(OneDrive oneDrive, string linkOrEncodedLinkOrShareId)
+            async public static Task<File> GetAsync(OneDrive oneDrive, string linkOrEncodedLinkOrShareId)
             {
-                Item i = Item.Get(oneDrive, linkOrEncodedLinkOrShareId);
+                Item i = await Item.GetAsync(oneDrive, linkOrEncodedLinkOrShareId);
                 if (i == null)
                     return null;
                 if (i is File)
                     return (File)i;
                 throw new Exception("Link points not to a file: " + linkOrEncodedLinkOrShareId);
+            }
+            public static File Get(OneDrive oneDrive, string linkOrEncodedLinkOrShareId)
+            {
+                return RunSync(() => GetAsync(oneDrive, linkOrEncodedLinkOrShareId));
             }
 
             internal File(OneDrive oneDrive, DriveItem driveItem) : base(oneDrive, driveItem)
@@ -41,12 +45,12 @@ namespace Cliver
                 CheckedIn,
                 CheckedOut,
             }
-            public CheckStatus GetCheckStatus()
+            async public Task<CheckStatus> GetCheckStatusAsync()
             {
                 if (OneDrive.CheckInIsSupported == false)
                     return CheckStatus.NotSupported;
 
-                var i = GetDriveItem("id, publication");
+                var i = await GetDriveItemAsync("id, publication");
                 if (i.Publication == null/* checkout is not supported but as of 2024 it is not true anymore */ || string.IsNullOrWhiteSpace(i.Publication.VersionId))
                 {
                     OneDrive.CheckInIsSupported = false;
@@ -65,18 +69,22 @@ namespace Cliver
                 }
                 throw new Exception("Unknown Publication.Level: " + s);
             }
+            public CheckStatus GetCheckStatus()
+            {
+                return OneDrive.RunSync(GetCheckStatusAsync);
+            }
 
             /// <summary>
             /// !!!TBF
             /// </summary>
             /// <returns></returns>
             /// <exception cref="Exception"></exception>
-            public object GetCheckedOutUser()//To find the specific user, you must use the Microsoft Graph Activity Logs with a query like KQL or Log Analytics
-                                             //to find the checkout activity for that specific file, as there is no direct API to query for the user who checked out a file. 
+            async public Task<JObject> GetCheckedOutUserAsync()//To find the specific user, you must use the Microsoft Graph Activity Logs with a query like KQL or Log Analytics
+                                                               //to find the checkout activity for that specific file, as there is no direct API to query for the user who checked out a file. 
             {
                 //if (SharepointIds == null)
                 //    throw new Exception("SharepointIds are NULL while the DriveItem status is CheckedOut.");
-                var di = GetDriveItem("id", "activities");
+                var di = await GetDriveItemAsync("id", "activities");
                 //https://stackoverflow.com/questions/51606008/ms-graph-rest-api-checkout-user
                 /* "action": {
                 "checkout": { }
@@ -90,6 +98,7 @@ namespace Cliver
                 }
             },*/
                 var data = di.AdditionalData["activity"];
+                JObject jo = JObject.FromObject(data);
                 //.Select(a => new JProperty(a.Key, a.Value));
                 JObject activities = new JObject(data);
                 JObject action = (JObject)activities["action"];
@@ -102,14 +111,18 @@ namespace Cliver
                 //if (checkoutUser == null)
                 //    throw new Exception("Could not get checkoutUser for the DriveItem.");
             }
+            public object GetCheckedOutUser()
+            {
+                return RunSync(GetCheckedOutUserAsync);
+            }
 
             /// <summary>
             /// (!)Not supported on a personal OneDrive: https://learn.microsoft.com/en-us/answers/questions/574546/is-checkin-checkout-files-supported-by-onedrive-pe.html
             /// </summary>
             /// <param name="throwExceptionIfFailed"></param>
-            public CheckStatus CheckOut(bool throwExceptionIfFailed = false)
+            public async Task<CheckStatus> CheckOutAsync(bool throwExceptionIfFailed = false)
             {
-                CheckStatus cs = GetCheckStatus();
+                CheckStatus cs = await GetCheckStatusAsync();
                 if (cs == CheckStatus.NotSupported)
                     return cs;
                 if (cs == CheckStatus.CheckedOut && CheckIn() != CheckStatus.CheckedIn)//!!!CheckIn() will create a new version. Find another way!
@@ -118,17 +131,18 @@ namespace Cliver
                     else
                         return CheckStatus.CheckedOutByNotMe;
 
-                RunSync(() => DriveItemRequestBuilder.Checkout.PostAsync());
+                await DriveItemRequestBuilder.Checkout.PostAsync();
 
-                SleepRoutines.WaitForCondition(() =>
-                {
-                    cs = GetCheckStatus();
-                    return cs == CheckStatus.CheckedOut;
-                }, CheckStatusChangeTimeoutSecs * 1000, 1000, true, 2);
+                MicrosoftTrier mt = new MicrosoftTrier();// sometimes it has a delay in switching status
+                await mt.RunAsync(async () => { cs = await GetCheckStatusAsync(); return cs == CheckStatus.CheckedOut ? new Object() : null; }, 2, CheckStatusChangeTimeoutSecs * 1000);
                 if (cs != CheckStatus.CheckedOut && throwExceptionIfFailed)
                     throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + cs.ToString());
 
                 return cs;
+            }
+            public CheckStatus CheckOut(bool throwExceptionIfFailed = false)
+            {
+                return RunSync(() => CheckOutAsync(throwExceptionIfFailed));
             }
 
             ///// <summary>
@@ -180,9 +194,9 @@ namespace Cliver
             /// </summary>
             /// <param name="comment"></param>
             /// <param name="throwExceptionIfFailed"></param>
-            public CheckStatus CheckIn(string comment = null, bool throwExceptionIfFailed = false)
+            async public Task<CheckStatus> CheckInAsync(string comment = null, bool throwExceptionIfFailed = false)
             {
-                CheckStatus cs = GetCheckStatus();
+                CheckStatus cs = await GetCheckStatusAsync();
                 if (cs == CheckStatus.NotSupported || cs == CheckStatus.CheckedIn/*(!)otherwise it will create a new version even if it is checked-in*/)
                     return cs;
 
@@ -192,31 +206,36 @@ namespace Cliver
                 {
                     Comment = comment,
                 };
-                RunSync(() => DriveItemRequestBuilder.Checkin.PostAsync(rb));
+                await DriveItemRequestBuilder.Checkin.PostAsync(rb);
 
                 cs = CheckStatus.NotSupported;
-                SleepRoutines.WaitForCondition(() =>
-                {
-                    cs = GetCheckStatus();
-                    return cs == CheckStatus.CheckedIn;
-                }, CheckStatusChangeTimeoutSecs * 1000, 1000, true, 2);
+                MicrosoftTrier mt = new MicrosoftTrier();// sometimes it has a delay in switching status
+                await mt.RunAsync(async () => { cs = await GetCheckStatusAsync(); return cs == CheckStatus.CheckedIn ? new Object() : null; }, 2, CheckStatusChangeTimeoutSecs * 1000);
                 if (cs != CheckStatus.CheckedIn && throwExceptionIfFailed)
                     throw new Exception(Cliver.Log.GetThisMethodName() + " failed on the file:\r\n" + DriveItem.WebUrl + "\r\nCheck status of the file: " + cs.ToString());
                 return cs;
             }
+            public CheckStatus CheckIn(string comment = null, bool throwExceptionIfFailed = false)
+            {
+                return RunSync(() => CheckInAsync(comment, throwExceptionIfFailed));
+            }
 
-            public string Download2Folder(string localFolder, string localFileName = null)
+            async public Task<string> Download2FolderAsync(string localFolder, string localFileName = null)
             {
                 if (localFileName == null)
                     localFileName = DriveItem.Name;
                 string localFile = localFolder + Path.DirectorySeparatorChar + localFileName;
-                Download(localFile);
+                await DownloadAsync(localFile);
                 return localFile;
             }
-
-            public void Download(string localFile)
+            public string Download2Folder(string localFolder, string localFileName = null)
             {
-                using (Stream s = RunSync(() => DriveItemRequestBuilder.Content.GetAsync()))
+                return RunSync(() => Download2FolderAsync(localFolder, localFileName));
+            }
+
+            async public Task DownloadAsync(string localFile)
+            {
+                using (Stream s = await DriveItemRequestBuilder.Content.GetAsync())
                 {
                     using (var fileStream = System.IO.File.Create(localFile))
                     {
@@ -225,13 +244,21 @@ namespace Cliver
                     }
                 }
             }
+            public void Download(string localFile)
+            {
+                RunSync(() => DownloadAsync(localFile));
+            }
 
-            public void Upload(string localFile)
+            async public Task UploadAsync(string localFile)
             {
                 using (Stream s = System.IO.File.OpenRead(localFile))
                 {
-                    DriveItem = RunSync(() => DriveItemRequestBuilder.Content.PutAsync(s));
+                    DriveItem = await DriveItemRequestBuilder.Content.PutAsync(s);
                 }
+            }
+            public void Upload(string localFile)
+            {
+                RunSync(() => UploadAsync(localFile));
             }
         }
     }

@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Cliver
 {
@@ -73,6 +75,38 @@ namespace Cliver
             }
             return o;
         }
+        async virtual public Task<T> RunAsync<T>(string logMessage, Func<Task<T>> function, int maxTryNumber = -1, int retryDelayMss = -1, IEnumerable<System.Net.HttpStatusCode> additionalRetriableHttpCodes = null) where T : class
+        {
+            if (maxTryNumber < 0)
+                maxTryNumber = DefaultTryMaxNumber;
+            if (retryDelayMss < 0)
+                retryDelayMss = DefaultRetryDelayMss;
+            List<System.Net.HttpStatusCode> retriableHttpCodes = RetriableHttpCodes;
+            if (additionalRetriableHttpCodes != null)
+                retriableHttpCodes.AddRange(additionalRetriableHttpCodes);
+            if (logMessage != null)
+                Log.Inform(logMessage);
+            T o = null;
+            int pollNumber = 0;
+            for (DateTime lastDt = DateTime.Now; ;)
+            {
+                o = await function();
+                if (o != null)
+                    break;
+                pollNumber++;
+                if (DateTime.Now.AddMilliseconds(retryDelayMss) > lastDt
+                    && (pollNumber >= maxTryNumber)
+                    )
+                    break;
+                await Task.Delay(retryDelayMss);
+            }
+            if (o == null)
+            {
+                string m = logMessage != null ? Regex.Replace(logMessage, @"\.\.\.", "") : nameof(MicrosoftTrier) + "." + nameof(Run) + "()";
+                throw new Exception2("Failed: " + m);
+            }
+            return o;
+        }
 
         /// <summary>
         /// Trier adapted for microsoft API requests. Can be used as a framework.
@@ -87,6 +121,10 @@ namespace Cliver
         {
             return Run(null, function, maxTryNumber, retryDelayMss, additionalRetriableHttpCodes);
         }
+        async virtual public Task<T> RunAsync<T>(Func<Task<T>> function, int maxTryNumber = -1, int retryDelayMss = -1, IEnumerable<System.Net.HttpStatusCode> additionalRetriableHttpCodes = null) where T : class
+        {
+            return await RunAsync(null, function, maxTryNumber, retryDelayMss, additionalRetriableHttpCodes);
+        }
 
         /// <summary>
         /// Trier adapted for microsoft API requests. Can be used as a framework.
@@ -100,6 +138,10 @@ namespace Cliver
         {
             Run(logMessage, () => { action(); return new Object(); }, maxTryNumber, retryDelayMss, additionalRetriableHttpCodes);
         }
+        async virtual public Task RunAsync(string logMessage, Task action, int maxTryNumber = -1, int retryDelayMss = -1, IEnumerable<System.Net.HttpStatusCode> additionalRetriableHttpCodes = null)
+        {
+            await RunAsync(logMessage, async () => { await action; return new Object(); }, maxTryNumber, retryDelayMss, additionalRetriableHttpCodes);
+        }
 
         /// <summary>
         /// Trier adapted for microsoft API requests. Can be used as a framework.
@@ -111,6 +153,10 @@ namespace Cliver
         virtual public void Run(Action action, int maxTryNumber = -1, int retryDelayMss = -1, IEnumerable<System.Net.HttpStatusCode> additionalRetriableHttpCodes = null)
         {
             Run(null, action, maxTryNumber, retryDelayMss, additionalRetriableHttpCodes);
+        }
+        async virtual public Task RunAsync(Task action, int maxTryNumber = -1, int retryDelayMss = -1, IEnumerable<System.Net.HttpStatusCode> additionalRetriableHttpCodes = null)
+        {
+            await RunAsync(null, action, maxTryNumber, retryDelayMss, additionalRetriableHttpCodes);
         }
     }
 }

@@ -72,21 +72,30 @@ namespace Cliver
         //            }).Result;
         //        }
 
+        async public Task<Drive> UserDriveAsync()
+        {
+            if (_UserDrive == null)
+                _UserDrive = await Client.Users[User.Id].Drive.GetAsync();
+            return _UserDrive;
+        }
+        Drive _UserDrive;
         public Drive UserDrive
         {
             get
             {
                 if (_UserDrive == null)
-                    _UserDrive = RunSync(() => Client.Users[User.Id].Drive.GetAsync());
+                    _UserDrive = RunSync(UserDriveAsync);
                 return _UserDrive;
             }
         }
-        Drive _UserDrive;
 
-
+        async public Task<DriveItem> GetRootDriveItemAsync(string driveId)
+        {
+            return await Client.Drives[driveId].Root.GetAsync();
+        }
         public DriveItem GetRootDriveItem(string driveId)
         {
-            return RunSync(() => Client.Drives[driveId].Root.GetAsync());
+            return RunSync(() => GetRootDriveItemAsync(driveId));
         }
 
         /// <summary>
@@ -163,13 +172,12 @@ namespace Cliver
         /// </summary>
         /// <param name="linkOrEncodedLinkOrShareId"></param>
         /// <returns></returns>
-        public Item GetItem(string linkOrEncodedLinkOrShareId)
+        async public Task<Item> GetItemAsync(string linkOrEncodedLinkOrShareId)
         {
             DriveItem di = null;
             try
             {
-                di = RunSync(() => Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync());
-                //di = Task.Run(() => { return Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync(); }).Result;
+                di = await Client.Shares[GetEncodedLinkOrShareId(linkOrEncodedLinkOrShareId)].DriveItem.GetAsync();
             }
             catch (Exception e)
             {
@@ -180,14 +188,18 @@ namespace Cliver
             }
             return Item.New(this, di);
         }
+        public Item GetItem(string linkOrEncodedLinkOrShareId)
+        {
+            return RunSync(() => GetItemAsync(linkOrEncodedLinkOrShareId));
+        }
 
-        public Item GetItemByRootPath(string rootPath)
+        async public Task<Item> GetItemByRootPathAsync(string rootPath)
         {
             string escapedRelativePath = GetEscapedPath(rootPath);//(!)the API always tries to unescape
             DriveItem di = null;
             try
             {
-                di = RunSync(() => Client.Drives[UserDrive.Id].Root.ItemWithPath(escapedRelativePath).GetAsync());
+                di = await Client.Drives[UserDrive.Id].Root.ItemWithPath(escapedRelativePath).GetAsync();
             }
             catch (Exception e)
             {
@@ -198,13 +210,17 @@ namespace Cliver
             }
             return Item.New(this, di);
         }
+        public Item GetItemByRootPath(string rootPath)
+        {
+            return RunSync(() => GetItemByRootPathAsync(rootPath));
+        }
 
-        public Site GetSite(string siteId)
+        async public Task<Site> GetSiteAsync(string siteId)
         {
             Site s = null;
             try
             {
-                s = RunSync(() => Client.Sites[siteId].GetAsync());
+                s = await Client.Sites[siteId].GetAsync();
             }
             catch (Exception e)
             {
@@ -215,13 +231,17 @@ namespace Cliver
             }
             return s;
         }
+        public Site GetSite(string siteId)
+        {
+            return RunSync(() => GetSiteAsync(siteId));
+        }
 
-        public Drive GetDrive(string driveId)
+        async public Task<Drive> GetDriveAsync(string driveId)
         {
             Drive s = null;
             try
             {
-                s = RunSync(() => Client.Drives[driveId].GetAsync());
+                s = await Client.Drives[driveId].GetAsync();
             }
             catch (Exception e)
             {
@@ -232,15 +252,27 @@ namespace Cliver
             }
             return s;
         }
-
-        public Folder GetFolder(string linkOrEncodedLinkOrShareId)
+        public Drive GetDrive(string driveId)
         {
-            return (Folder)GetItem(linkOrEncodedLinkOrShareId);
+            return RunSync(() => GetDriveAsync(driveId));
         }
 
+        async public Task<Folder> GetFolderAsync(string linkOrEncodedLinkOrShareId)
+        {
+            return (Folder)await GetItemAsync(linkOrEncodedLinkOrShareId);
+        }
+        public Folder GetFolder(string linkOrEncodedLinkOrShareId)
+        {
+            return RunSync(() => GetFolderAsync(linkOrEncodedLinkOrShareId));
+        }
+
+        async public Task<File> GetFileAsync(string linkOrEncodedLinkOrShareId)
+        {
+            return (File)await GetItemAsync(linkOrEncodedLinkOrShareId);
+        }
         public File GetFile(string linkOrEncodedLinkOrShareId)
         {
-            return (File)GetItem(linkOrEncodedLinkOrShareId);
+            return RunSync(() => GetFileAsync(linkOrEncodedLinkOrShareId));
         }
 
         /// <summary>

@@ -21,19 +21,23 @@ namespace Cliver
     {
         public class Folder : Item
         {
+            async public static Task<Folder> GetAsync(OneDrive oneDrive, string linkOrEncodedLinkOrShareId)
+            {
+                return await oneDrive.GetFolderAsync(linkOrEncodedLinkOrShareId);
+            }
             public static Folder Get(OneDrive oneDrive, string linkOrEncodedLinkOrShareId)
             {
-                return oneDrive.GetFolder(linkOrEncodedLinkOrShareId);
+                return RunSync(() => GetAsync(oneDrive, linkOrEncodedLinkOrShareId));
             }
 
-            public Item GetItem(string relativePath)
+            async public Task<Item> GetItemAsync(string relativePath)
             {
                 string escapedRelativePath = GetEscapedPath(relativePath);//(!)the API always tries to unescape
 
                 DriveItem di = null;
                 try
                 {
-                    di = RunSync(() =>  DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync());
+                    di = await DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync();
                 }
                 catch (Exception e)
                 {
@@ -44,27 +48,35 @@ namespace Cliver
                 }
                 return New(OneDrive, di);
             }
-
-            public File GetFile(string relativePath)
+            public Item GetItem(string relativePath)
             {
-                Item i = GetItem(relativePath);
+                return RunSync(() => GetItemAsync(relativePath));
+            }
+
+            async public Task<File> GetFileAsync(string relativePath)
+            {
+                Item i = await GetItemAsync(relativePath);
                 if (i == null)
                     return null;
                 if (i is File)
                     return (File)i;
                 throw new Exception("Item[relativePath='" + relativePath + "'] is not a file.");
             }
+            public File GetFile(string relativePath)
+            {
+                return RunSync(() => GetFileAsync(relativePath));
+            }
 
-            public Folder GetFolder(string relativePath, bool createIfNotExists)
+            async public Task<Folder> GetFolderAsync(string relativePath, bool createIfNotExists)
             {
                 string escapedRelativePath = GetEscapedPath(relativePath);//(!)the API always tries to unescape
 
-                DriveItem di = get();
-                DriveItem get()
+                DriveItem di = await getAsync();
+                async Task<DriveItem> getAsync()
                 {
                     try
                     {
-                        return RunSync(() =>  DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync());
+                        return await DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).GetAsync();
                     }
                     catch (Exception e)
                     {
@@ -90,17 +102,21 @@ namespace Cliver
                     {
                         Name = escapedRelativePath,
                         Folder = new Microsoft.Graph.Models.Folder
-                        {
-                        },
+                            {
+                            },
                         AdditionalData = new Dictionary<string, object>()
                             {
                                 {"@microsoft.graph.conflictBehavior", "rename"}
                             }
                     };
-                    DriveItem cdi = RunSync(() =>  DriveItemRequestBuilder.Children.PostAsync(di));
+                    DriveItem cdi = await DriveItemRequestBuilder.Children.PostAsync(di);
                     return new Folder(OneDrive, cdi);
                 }
-                return GetFolder(parentFolder, createIfNotExists).GetFolder(itemName, createIfNotExists);
+                return await (await GetFolderAsync(parentFolder, createIfNotExists))?.GetFolderAsync(itemName, createIfNotExists);
+            }
+            public Folder GetFolder(string relativePath, bool createIfNotExists)
+            {
+                return RunSync(() => GetFolderAsync(relativePath, createIfNotExists));
             }
 
             internal Folder(OneDrive oneDrive, DriveItem driveItem) : base(oneDrive, driveItem)
@@ -109,7 +125,7 @@ namespace Cliver
                 //    throw new Exception("");
             }
 
-            public File UploadFile(string localFile, string remoteFileRelativePath = null /*, bool replace = true*/)
+            async public Task<File> UploadFileAsync(string localFile, string remoteFileRelativePath = null /*, bool replace = true*/)
             {
                 if (remoteFileRelativePath == null)
                     remoteFileRelativePath = PathRoutines.GetFileName(localFile);
@@ -118,16 +134,20 @@ namespace Cliver
 
                 using (Stream s = System.IO.File.OpenRead(localFile))
                 {
-                    DriveItem driveItem = RunSync(() =>  DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).Content.PutAsync(s));
+                    DriveItem driveItem = await DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).Content.PutAsync(s);
                     return new File(OneDrive, driveItem);
                 }
             }
+            public File UploadFile(string localFile, string remoteFileRelativePath = null /*, bool replace = true*/)
+            {
+                return RunSync(() => UploadFileAsync(localFile, remoteFileRelativePath));
+            }
 
-            public void DownloadFile(string remoteFileRelativePath, string localFile)
+            async public Task DownloadFileAsync(string remoteFileRelativePath, string localFile)
             {
                 string escapedRelativePath = GetEscapedPath(remoteFileRelativePath);//(!)the API always tries to unescape
 
-                using (Stream s = RunSync(() =>  DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).Content.GetAsync()))
+                using (Stream s = await DriveItemRequestBuilder.ItemWithPath(escapedRelativePath).Content.GetAsync())
                 {
                     using (var fileStream = System.IO.File.Create(localFile))
                     {
@@ -136,42 +156,59 @@ namespace Cliver
                     }
                 }
             }
+            public void DownloadFile(string remoteFileRelativePath, string localFile)
+            {
+                RunSync(() => UploadFileAsync(remoteFileRelativePath, localFile));
+            }
 
+            async Task<List<DriveItem>> GetChildDriveItemsAsync(string filter)
+            {
+                return (await DriveItemRequestBuilder.Children.GetAsync(
+                    rc =>
+                    {
+                        rc.Headers["Prefer"] = new string[] { "apiversion = 2.1", //supports Filter
+                                "TryFilterLastModifiedDateTimeTimeWarningMayFailRandomly", //supports filtering by lastModifiedDateTime
+                        };
+                        rc.QueryParameters.Filter = filter;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
+                    }
+                )).Value;
+            }
+            public IEnumerable<DriveItem> GetChildDriveItems(string filter)
+            {
+                return RunSync(() => GetChildDriveItemsAsync(filter));
+            }
+
+            async public Task<List<Item>> GetChildrenAsync(string filter = null)
+            {
+                return (await GetChildDriveItemsAsync(filter))?.Select(a => New(OneDrive, a)).ToList();
+            }
             public List<Item> GetChildren(string filter = null)
             {
-                return getChildren(filter)?.Select(a => New(OneDrive, a)).ToList();
+                return RunSync(() => GetChildrenAsync(filter));
             }
 
-            IEnumerable<DriveItem> getChildren(string filter)
-            {
-                return Task.Run(() =>
-                    {
-                        return DriveItemRequestBuilder.Children.GetAsync(
-                        rc =>
-                        {
-                            rc.Headers["Prefer"] = new string[] { "apiversion = 2.1", //supports Filter
-                                "TryFilterLastModifiedDateTimeTimeWarningMayFailRandomly", //supports filtering by lastModifiedDateTime
-                            };
-                            rc.QueryParameters.Filter = filter;//https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=csharp
-                        }
-                    );
-                    }).Result.Value;
-            }
-
-            public List<File> GetFiles(string filter = null)
+            async public Task<List<File>> GetFilesAsync(string filter = null)
             {
                 string f = "file ne null";
                 if (filter != null)
                     f = "(" + f + ") and (" + filter + ")";
-                return getChildren(f)?.Select(a => (File)New(OneDrive, a)).ToList();
+                return (await GetChildDriveItemsAsync(f))?.Select(a => (File)New(OneDrive, a)).ToList();
+            }
+            public List<File> GetFiles(string filter = null)
+            {
+                return RunSync(() => GetFilesAsync(filter));
             }
 
-            public List<Folder> GetFolders(string filter = null)
+            async public Task<List<Folder>> GetFoldersAsync(string filter = null)
             {
                 string f = "folder ne null";
                 if (filter != null)
                     f = "(" + f + ") and (" + filter + ")";
-                return getChildren(f)?.Select(a => (Folder)New(OneDrive, a)).ToList();
+                return (await GetChildDriveItemsAsync(f))?.Select(a => (Folder)New(OneDrive, a)).ToList();
+            }
+            public List<Folder> GetFolders(string filter = null)
+            {
+                return RunSync(() => GetFoldersAsync(filter));
             }
         }
     }
